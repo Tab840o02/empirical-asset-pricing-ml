@@ -4,6 +4,14 @@
 Replication of **Gu, Kelly & Xiu (2020), "Empirical Asset Pricing via Machine
 Learning"**, *Review of Financial Studies*, 33(5), 2223-2273.
 
+The paper systematically compares ~7 machine learning models (OLS, LASSO,
+Random Forest, Gradient Boosting, Neural Networks) for predicting cross-sectional
+stock returns on CRSP + Compustat using 94 characteristics. The main finding is
+that non-linear methods — neural networks in particular — dominate linear models,
+with profitability, momentum, and trading frictions being the most important
+feature groups. Data is sourced from WRDS (CRSP + Compustat); factor benchmarks
+use Kenneth French's data library (free access).
+
 ---
 
 ## Project Structure
@@ -28,9 +36,9 @@ Learning"**, *Review of Financial Studies*, 33(5), 2223-2273.
 
 | # | Extension | Brief Description |
 |---|-----------|-------------------|
-| 1 | **Alternative feature set** | Augment the original 94 characteristics with additional macro/sentiment signals to test whether out-of-sample R² improves. |
-| 2 | **Long-short portfolio construction** | Build decile-sorted long-short portfolios from model predictions and evaluate Sharpe ratio, max drawdown, and factor exposures (FF5 + MOM). |
-| 3 | **Explainability via SHAP** | Apply SHAP values to the best-performing neural network to identify which characteristics drive return predictions in different market regimes. |
+| 1 | **Out-of-sample post-2020** | The original paper ends ~2016. We extend the evaluation window to 2020-2023 (Covid crash, reflation, 2022 bear market) to test whether the neural network advantage persists in unseen macro regimes. |
+| 2 | **Model ranking after transaction costs** | The paper reports gross returns. Using turnover estimates and TC assumptions, we show whether the model ranking changes once frictions are accounted for — an economically important result. |
+| 3 | **Reduced characteristic set (quality/momentum)** | Instead of all 94 characteristics, we use the 15-20 most economically interpretable ones and measure the performance loss. This answers: *does the full complexity actually pay off?* |
 
 ---
 
@@ -100,5 +108,3 @@ Then open a **Pull Request** on GitHub and request a review before merging into
 
 - Gu, S., Kelly, B., & Xiu, D. (2020). Empirical asset pricing via machine
   learning. *Review of Financial Studies*, 33(5), 2223-2273.
-- Two Sigma (2020). A machine learning approach to risk and return. *(see
-  docs/)*
