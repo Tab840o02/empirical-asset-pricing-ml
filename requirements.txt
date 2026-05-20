@@ -7,3 +7,9 @@ seaborn
 jupyter
 statsmodels
 tables
+wrds
+pyarrow
+lightgbm
+pytest
+pandas_datareader
+torch
