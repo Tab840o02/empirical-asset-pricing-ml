@@ -181,9 +181,9 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
     out["roaq"] = (panel["q_ibq"] / atq_lag3).replace([np.inf, -np.inf], np.nan)
 
     # ------------------------------------------------------------------
-    # Quarterly ROE: IBQ / CEQQ
+    # Quarterly ROE: IBQ / lag(CEQQ)  — lag 1 quarter = ~3 monthly rows
     # ------------------------------------------------------------------
-    ceqq = grp["q_ceqq"].shift(1).replace(0, np.nan)
+    ceqq = grp["q_ceqq"].shift(3).replace(0, np.nan)
     out["roeq"] = (panel["q_ibq"] / ceqq).replace([np.inf, -np.inf], np.nan)
 
     # ------------------------------------------------------------------
@@ -201,57 +201,60 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
     )
 
     # ------------------------------------------------------------------
-    # Quarterly change in taxes: ΔTXDITCQ / ATQ (or use TXDBQ)
+    # Quarterly change in taxes: ΔTXTQ / ATQ  (Thomas & Zhang 2011)
+    # txtq = total income taxes; lag 3 monthly rows ≈ 1 quarter
     # ------------------------------------------------------------------
-    txq_lag3 = grp["q_txditcq"].shift(3)
+    txq_lag3 = grp["q_txtq"].shift(3)
     out["chtx"] = (
-        (panel["q_txditcq"].fillna(0.0) - txq_lag3.fillna(0.0)) / atq
+        (panel["q_txtq"].fillna(0.0) - txq_lag3.fillna(0.0)) / atq
     ).replace([np.inf, -np.inf], np.nan)
 
     # ------------------------------------------------------------------
     # Standardized unexpected earnings (SUE): (EPS - lag EPS) / std(EPS)
-    # Use EPSPXQ, rolling 8-quarter history
+    # Use EPSPXQ.  In the monthly panel quarterly data repeats ~3 months,
+    # so "same quarter last year" = shift(12) and "8 quarters" = rolling(24).
     # ------------------------------------------------------------------
     eps = panel["q_epspxq"]
-    eps_lag4 = grp["q_epspxq"].shift(4)    # same quarter last year
+    eps_lag4 = grp["q_epspxq"].shift(12)   # 4 quarters back ≈ 12 monthly rows
     eps_diff = eps - eps_lag4
-    eps_std8 = grp["q_epspxq"].rolling(8, min_periods=4).std().reset_index(
+    eps_std8 = grp["q_epspxq"].rolling(24, min_periods=12).std().reset_index(
         level=0, drop=True
     ).replace(0, np.nan)
     out["sue"] = (eps_diff / eps_std8).replace([np.inf, -np.inf], np.nan)
 
     # ------------------------------------------------------------------
     # Revenue surprise (RS): quarterly sales growth standardized
+    # Same timing correction: shift(12) for year-over-year, rolling(24)
     # ------------------------------------------------------------------
     saleq = panel["q_saleq"]
-    saleq_lag4 = grp["q_saleq"].shift(4)
+    saleq_lag4 = grp["q_saleq"].shift(12)   # 4 quarters back
     saleq_diff = (saleq - saleq_lag4) / saleq_lag4.abs().replace(0, np.nan)
-    saleq_std8 = grp["q_saleq"].rolling(8, min_periods=4).std().reset_index(
+    saleq_std8 = grp["q_saleq"].rolling(24, min_periods=12).std().reset_index(
         level=0, drop=True
     ).replace(0, np.nan)
     out["rs"] = (saleq_diff / saleq_std8).replace([np.inf, -np.inf], np.nan)
 
     # ------------------------------------------------------------------
-    # ROA volatility: std of quarterly ROA over past 8 quarters
+    # ROA volatility: std of quarterly ROA over past 8 quarters (~24 months)
     # ------------------------------------------------------------------
     roaq_q = panel["q_ibq"] / panel["q_atq"].replace(0, np.nan)
     panel_tmp = panel.copy()
     panel_tmp["_roaq_q"] = roaq_q.values
     out["roavol"] = (
         panel_tmp.groupby("permno", sort=False)["_roaq_q"]
-        .rolling(8, min_periods=4)
+        .rolling(24, min_periods=12)
         .std()
         .reset_index(level=0, drop=True)
     )
 
     # ------------------------------------------------------------------
-    # Standard deviation of cash flow (OANCFY / ATQ), rolling 8 qtrs
+    # Standard deviation of cash flow (OANCFY / ATQ), rolling 8 qtrs (~24 months)
     # ------------------------------------------------------------------
     cf_q = panel["q_oancfy"] / panel["q_atq"].replace(0, np.nan)
     panel_tmp["_cf_q"] = cf_q.values
     out["stdcf"] = (
         panel_tmp.groupby("permno", sort=False)["_cf_q"]
-        .rolling(8, min_periods=4)
+        .rolling(24, min_periods=12)
         .std()
         .reset_index(level=0, drop=True)
     )
@@ -280,30 +283,24 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
     cf_roa = _f(panel["a_oancf"].fillna(0.0) / at)
     g4 = np.where(np.isnan(cf_roa), 0.0, (cf_roa > roa_curr).astype(float))
 
+    # G-score signals 5-7: compare firm ratio to cross-sectional median of that ratio
+    # (median of ratios, not ratio of medians)
     capx_at = _f(panel["a_capx"].fillna(0.0) / at)
-    capx_med_num = panel.groupby("date")["a_capx"].transform(
-        lambda x: x.fillna(0.0).median()
-    )
-    capx_med_den = panel.groupby("date")["a_at"].transform(
-        lambda x: pd.to_numeric(x, errors="coerce").median()
-    )
-    capx_med = _f(capx_med_num / capx_med_den.replace(0, np.nan))
+    panel_ms = panel.copy()
+    panel_ms["_capx_at"] = panel["a_capx"].fillna(0.0) / at
+    capx_med = _f(panel_ms.groupby("date")["_capx_at"].transform("median"))
     g5 = np.where(np.isnan(capx_at) | np.isnan(capx_med), 0.0,
                   (capx_at > capx_med).astype(float))
 
     xrd_at = _f(xrd / at)
-    xrd_med_num = panel.groupby("date")["a_xrd"].transform(
-        lambda x: x.fillna(0.0).median()
-    )
-    xrd_med = _f(xrd_med_num / capx_med_den.replace(0, np.nan))
+    panel_ms["_xrd_at"] = xrd / at
+    xrd_med = _f(panel_ms.groupby("date")["_xrd_at"].transform("median"))
     g6 = np.where(np.isnan(xrd_at) | np.isnan(xrd_med), 0.0,
                   (xrd_at > xrd_med).astype(float))
 
     xsga_at = _f(panel["a_xsga"].fillna(0.0) / at)
-    xsga_med_num = panel.groupby("date")["a_xsga"].transform(
-        lambda x: x.fillna(0.0).median()
-    )
-    xsga_med = _f(xsga_med_num / capx_med_den.replace(0, np.nan))
+    panel_ms["_xsga_at"] = panel["a_xsga"].fillna(0.0) / at
+    xsga_med = _f(panel_ms.groupby("date")["_xsga_at"].transform("median"))
     g7 = np.where(np.isnan(xsga_at) | np.isnan(xsga_med), 0.0,
                   (xsga_at > xsga_med).astype(float))
 

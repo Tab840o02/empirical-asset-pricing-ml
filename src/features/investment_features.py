@@ -18,7 +18,7 @@ acc         – Accruals: (ΔACT - ΔCHE - ΔLCT + ΔDLC + ΔTXP - DP) / AT
 pctacc      – Percent accruals: ACC / |IB| (if IB ≠ 0)
 absacc      – Absolute value of accruals
 lgr         – (already in value_features; included here for completeness if needed)
-convind     – Convertible debt indicator: 1 if DCVT > 0 (using DLTT proxy)
+convind     – Convertible debt indicator: 1 if DCVT > 0 (Valta 2012)
 secured     – Secured debt / total debt (proxy: DLTT / (DLTT + DLC))
 securedind  – 1 if any secured debt exists (proxy: DLTT > 0)
 divi        – Dividend initiator: 1 if DV > 0 and lag(DV) == 0
@@ -179,14 +179,16 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
     out["absacc"] = out["acc"].abs()
 
     # ------------------------------------------------------------------
-    # Convertible debt indicator (proxy: DLTT > DLTT_previous by large amount)
-    # True convertible requires DCVT which is not in our download.
-    # Use a flag based on DLTT > 0 as a broad proxy.
+    # Convertible debt indicator (Valta 2012)
+    # convind = 1 if DCVT (convertible debt) > 0
     # ------------------------------------------------------------------
-    out["convind"] = (panel["a_dltt"].fillna(0.0) > 0).astype(float)
+    out["convind"] = (panel["a_dcvt"].fillna(0.0) > 0).astype(float)
 
     # ------------------------------------------------------------------
-    # Secured debt (proxy: DLTT / (DLTT + DLC))
+    # Secured debt proxy: DLTT / (DLTT + DLC)
+    # Note: true secured debt (Valta 2012) requires hand-collected data
+    # not available in standard Compustat.  DLTT/(DLTT+DLC) measures the
+    # long-term debt fraction and is the standard proxy in GKX replications.
     # ------------------------------------------------------------------
     dltt = panel["a_dltt"].fillna(0.0)
     dlc = panel["a_dlc"].fillna(0.0)

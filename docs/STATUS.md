@@ -1,17 +1,17 @@
 # Project Status
 
-> Last updated: 2026-05-21
+> Last updated: 2026-05-21 (post-audit fixes applied)
 
 ---
 
-## Current Phase: 3 — Feature Engineering (assembler running)
+## Current Phase: 3 — Feature Engineering (complete, audited)
 
 | Phase | Name | Status | Notes |
 |-------|------|--------|-------|
 | 0 | Environment setup | ✅ Done | Python 3.12, all deps installed |
 | 1 | WRDS data extraction | ✅ Done | All raw tables downloaded, audited |
 | 2 | Data cleaning & CCM merge | ✅ Done | merged_panel 2.5M rows × 118 cols, 11/11 tests ✅ |
-| 3 | Feature engineering (94 characteristics) | ✅ Done | 81/94 chars; features_panel.parquet written (11.8 min) |
+| 3 | Feature engineering (94 characteristics) | ✅ Done | 81/94 chars; audited & fixed; features_panel.parquet rebuilt (8.2 min) |
 | 4 | Model training & evaluation | 🔲 Not started | — |
 | 5a | Extension — Post-2020 OOS | 🔲 Not started | — |
 | 5b | Extension — Net of transaction costs | 🔲 Not started | — |
@@ -32,8 +32,8 @@ All raw files are in `data/raw/` (gitignored).
 | `crsp_daily_index.parquet` | 17,117 | — | ✅ Market index |
 | `crsp_names.parquet` | 117,830 | 3 MB | ✅ |
 | `crsp_delistings.parquet` | 38,843 | 1 MB | ✅ |
-| `compustat_annual.parquet` | 598,935 | 88 MB | ✅ 66 Compustat cols |
-| `compustat_quarterly.parquet` | 2,112,947 | 143 MB | ✅ Includes oancfy, capsq |
+| `compustat_annual.parquet` | 598,935 | 88 MB | ✅ 67 Compustat cols (incl. dcvt) |
+| `compustat_quarterly.parquet` | 2,112,947 | 143 MB | ✅ Includes oancfy, capsq, txtq |
 | `compustat_company.parquet` | 57,583 | 1.6 MB | ✅ SIC code — 2.3% null (use as sich fallback) |
 | `compustat_security.parquet` | 76,566 | 1.8 MB | ✅ CUSIP/exchange data for CCM linker |
 | `ff_factors.parquet` | 1,197 months | — | ✅ FF5 factors through 2026-03 |
@@ -76,7 +76,18 @@ Look-ahead bias: **11/11 tests pass** — no forward contamination confirmed.
 - **Date range**: 1957-01-31 → 2024-11-30 (815 months, 23,750 permnos)
 - **ret_exc**: 0 nulls; mean = +0.82%/mo, median = −0.32%/mo, σ = 17.8%/mo (normal for full cross-section)
 - **Characteristics**: 0% null (all imputed to 0 = cross-sectional median)
-- **Runtime**: 11.8 minutes on M3 MacBook equivalent
+- **Runtime**: 8.2 minutes
+
+### Phase 3 audit (2026-05-21) — fixes applied
+
+| # | Severity | Feature | Issue | Fix |
+|---|----------|---------|-------|-----|
+| 1 | Critical | sue, rs | `shift(4)` / `rolling(8)` wrong in monthly panel | `shift(12)` / `rolling(24, min_periods=12)` |
+| 2 | Critical | chtx | Used `q_txditcq` (deferred taxes, wrong field) | Use `q_txtq` (total income taxes, Thomas & Zhang 2011) |
+| 3 | Critical | roavol, stdcf | `rolling(8)` covers only ~2 quarters in monthly panel | `rolling(24, min_periods=12)` |
+| 4 | Moderate | convind | `a_dltt > 0` true for ~90% of firms (useless) | `a_dcvt > 0` (actual convertible debt field, Valta 2012) |
+| 5 | Moderate | G-score g5/g6/g7 | `median(capx)/median(at)` ≠ `median(capx/at)` | Compute ratio first, then cross-sectional median |
+| 6 | Minor | roeq | `shift(1)` instead of `shift(3)` for 1-quarter lag | `shift(3)` |
 
 ---
 

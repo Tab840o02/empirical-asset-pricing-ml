@@ -282,6 +282,8 @@ _FUNDA_COLS = """
     lct, dlc, dltt, dd1, ap, txp, ob,
     -- Equity / other
     re, prstkc, sstk, dvc, dvp, dvt,
+    -- Convertible debt (used for convind — Valta 2012)
+    dcvt,
     -- Accruals
     xacc, recch, invch
 """
@@ -294,6 +296,8 @@ _FUNDQ_COLS = """
     ibq, saleq, niq, dpq, xrdq, oancfy, capsq,
     actq, cheq, rectq, invtq, ppentq, lctq, dlcq, dlttq,
     txdbq, txditcq,
+    -- Total income taxes (used for chtx — Thomas & Zhang 2011)
+    txtq,
     -- For SUE (standardised unexpected earnings)
     epspxq, epspiq
 """
