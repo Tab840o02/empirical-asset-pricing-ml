@@ -291,9 +291,9 @@ _FUNDQ_COLS = """
     gvkey, datadate, fyearq, fqtr, indfmt, datafmt, popsrc, consol,
     -- Quarterly fundamentals
     atq, ltq, ceqq, seqq, cshoq, prccq, ajexq,
-    ibq, saleq, niq, dpq, xrdq, oancfq, capxq,
+    ibq, saleq, niq, dpq, xrdq, oancfy, capsq,
     actq, cheq, rectq, invtq, ppentq, lctq, dlcq, dlttq,
-    txdbq, txdiq,
+    txdbq, txditcq,
     -- For SUE (standardised unexpected earnings)
     epspxq, epspiq
 """
@@ -392,18 +392,12 @@ def download_compustat_security(conn, output_dir: Path = RAW_DIR) -> Path:
             iid,
             cusip,
             tic,
-            conm,
-            idbeg,
-            idend,
             exchg,
-            tpci,
-            curcdd
+            tpci
         FROM comp.security
-        ORDER BY gvkey, iid, idbeg
+        ORDER BY gvkey, iid
     """
-    df = conn.raw_sql(sql, date_cols=["idbeg", "idend"])
-    # Fill active-end sentinel
-    df["idend"] = df["idend"].fillna(pd.Timestamp(ACTIVE_END_DATE))
+    df = conn.raw_sql(sql)
     out = output_dir / "compustat_security.parquet"
     df.to_parquet(out, index=False)
     log.info("  → %s  (%d rows)", out.name, len(df))
@@ -446,8 +440,8 @@ def download_compustat_company(conn, output_dir: Path = RAW_DIR) -> Path:
 
 def download_ff_factors(output_dir: Path = RAW_DIR) -> Path:
     """
-    Download monthly Fama-French 5-factor data from Kenneth French's website
-    using ``pandas_datareader``.
+    Download monthly Fama-French 5-factor data directly from Kenneth French's
+    website using ``requests`` and ``zipfile`` (no pandas_datareader needed).
 
     Saves a single Parquet file containing:
         Mkt-RF, SMB, HML, RMW, CMA, RF  (all as decimals, not percentages)
@@ -455,41 +449,54 @@ def download_ff_factors(output_dir: Path = RAW_DIR) -> Path:
     The risk-free rate (RF) in this file is the 1-month T-bill return used
     to convert raw CRSP returns to excess returns for model training.
     """
-    try:
-        import pandas_datareader.data as web
-    except ImportError as exc:
-        raise ImportError(
-            "pandas_datareader is required to download FF factors.  "
-            "Run: pip install pandas_datareader"
-        ) from exc
+    import io
+    import zipfile
+    import requests
 
-    log.info("Downloading Fama-French 5-factor data …")
+    BASE = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp"
+    FF3_URL = f"{BASE}/F-F_Research_Data_Factors_CSV.zip"
+    FF5_URL = f"{BASE}/F-F_Research_Data_5_Factors_2x3_CSV.zip"
 
-    # FF5 — monthly, starts 1963-07
-    ff5_raw = web.DataReader(
-        "F-F_Research_Data_5_Factors_2x3",
-        "famafrench",
-        start="1926-01-01",
-    )[0]
+    def _fetch_csv(url: str) -> pd.DataFrame:
+        log.info("  Fetching %s …", url.split("/")[-1])
+        resp = requests.get(url, timeout=60)
+        resp.raise_for_status()
+        zf = zipfile.ZipFile(io.BytesIO(resp.content))
+        csv_name = [n for n in zf.namelist() if n.lower().endswith(".csv")][0]
+        raw = zf.read(csv_name).decode("utf-8", errors="replace")
+        # Ken French CSVs have a header block and a footer — parse only the
+        # rows where the first column is a 6-digit YYYYMM integer.
+        lines = []
+        for line in raw.splitlines():
+            parts = line.split(",")
+            token = parts[0].strip()
+            if len(token) == 6 and token.isdigit():
+                lines.append(line)
+        df = pd.read_csv(
+            io.StringIO("\n".join(lines)),
+            header=None,
+        )
+        # First column is the period index (YYYYMM)
+        df.columns = range(len(df.columns))
+        df[0] = pd.to_datetime(df[0].astype(str), format="%Y%m") + pd.offsets.MonthEnd(0)
+        df = df.set_index(0)
+        df.index.name = "date"
+        return df
 
-    # FF3 — monthly, starts 1926-07 (extends HML back before FF5 sample)
-    ff3_raw = web.DataReader(
-        "F-F_Research_Data_Factors",
-        "famafrench",
-        start="1926-01-01",
-    )[0]
+    log.info("Downloading Fama-French factor data from Kenneth French website …")
 
-    # Merge: use FF5 where available, FF3 for the pre-1963 HML column
-    ff = ff3_raw[["Mkt-RF", "SMB", "HML", "RF"]].copy()
-    ff5_cols = ff5_raw[["RMW", "CMA"]].copy()
-    ff = ff.join(ff5_cols, how="left")
+    ff3 = _fetch_csv(FF3_URL)
+    ff3.columns = ["Mkt-RF", "SMB", "HML", "RF"]
+
+    ff5 = _fetch_csv(FF5_URL)
+    ff5.columns = ["Mkt-RF", "SMB", "HML", "RMW", "CMA", "RF"]
+
+    # Use FF3 for the full history (1926+); fill in RMW, CMA from FF5 where available
+    ff = ff3[["Mkt-RF", "SMB", "HML", "RF"]].copy()
+    ff = ff.join(ff5[["RMW", "CMA"]], how="left")
 
     # Convert from percentage to decimal
     ff = ff / 100.0
-
-    # Convert period index to month-end timestamp (e.g. 1963-07 → 1963-07-31)
-    ff.index = pd.to_datetime(ff.index.to_timestamp(how="end")).normalize()
-    ff.index.name = "date"
 
     out = output_dir / "ff_factors.parquet"
     ff.to_parquet(out)

@@ -107,6 +107,11 @@ def _load_comp_security(raw_dir: Path = RAW_DIR) -> pd.DataFrame:
     df = df[df["cusip8"] != "NAN" * CUSIP_LENGTH]
     # Normalise ticker for fallback
     df["ticker_norm"] = df["tic"].astype(str).str.strip().str.upper()
+    # comp.security has no date-range columns — treat each CUSIP as always valid;
+    # the CRSP namedt/nameendt on the other side still enforces point-in-time.
+    df["idbeg"] = pd.Timestamp("1950-01-01")
+    df["idend"] = pd.Timestamp(ACTIVE_END_DATE)
+    df["conm"] = ""  # company name not available in comp.security
     return df
 
 
@@ -213,14 +218,18 @@ def _build_ticker_link(
     overlap_days = (merged["link_end"] - merged["link_start"]).dt.days
     merged = merged[overlap_days >= MIN_LINK_OVERLAP_DAYS].copy()
 
-    # Name similarity guard — drop matches where company names are too dissimilar
-    merged["name_sim"] = merged.apply(
-        lambda r: _name_similarity(
-            str(r.get("comnam", "")), str(r.get("conm", ""))
-        ),
-        axis=1,
-    )
-    merged = merged[merged["name_sim"] >= name_similarity_threshold].copy()
+    # Name similarity guard — skip when comp.security has no company names
+    # (conm column is empty because comp.security does not carry that field).
+    # The date-overlap constraint already limits spurious ticker reuse.
+    has_conm = merged["conm"].astype(str).str.strip().ne("").any()
+    if has_conm:
+        merged["name_sim"] = merged.apply(
+            lambda r: _name_similarity(
+                str(r.get("comnam", "")), str(r.get("conm", ""))
+            ),
+            axis=1,
+        )
+        merged = merged[merged["name_sim"] >= name_similarity_threshold].copy()
 
     merged["link_method"] = "ticker"
     log.info("  Ticker matches after name-similarity filter: %d rows", len(merged))

@@ -156,9 +156,10 @@ def _attach_annual(panel: pd.DataFrame, annual: pd.DataFrame) -> pd.DataFrame:
     }
     ann = ann.rename(columns=rename_map)
 
-    # Sort both sides for merge_asof (requires sorted keys)
-    panel_linked = panel_linked.sort_values(["gvkey", "ym"])
-    ann = ann.sort_values(["gvkey", "public_date"])
+    # merge_asof requires the 'on' key to be globally monotone (not just
+    # within groups), so sort only by the join key, not by (gvkey, key).
+    panel_linked = panel_linked.sort_values("ym")
+    ann = ann.sort_values("public_date")
 
     merged = pd.merge_asof(
         panel_linked,
@@ -206,8 +207,8 @@ def _attach_quarterly(panel: pd.DataFrame, quarterly: pd.DataFrame) -> pd.DataFr
     rename_map = {c: f"q_{c}" for c in qtr.columns if c != "gvkey"}
     qtr = qtr.rename(columns=rename_map)
 
-    panel_linked = panel_linked.sort_values(["gvkey", "ym"])
-    qtr = qtr.sort_values(["gvkey", "q_public_date"])
+    panel_linked = panel_linked.sort_values("ym")
+    qtr = qtr.sort_values("q_public_date")
 
     merged = pd.merge_asof(
         panel_linked,
@@ -249,6 +250,12 @@ def build_merged_panel(output_path=MERGED_PANEL_PATH) -> pd.DataFrame:
 
     # Drop the period helper column before saving
     panel = panel.drop(columns=["ym"], errors="ignore")
+
+    # Convert any Period columns to datetime64 so Parquet stores them correctly
+    # and the look-ahead tests can compare directly to the CRSP date column.
+    for col in ["public_date", "q_public_date"]:
+        if col in panel.columns and isinstance(panel[col].dtype, pd.PeriodDtype):
+            panel[col] = panel[col].dt.to_timestamp()
 
     # Sort final panel
     panel = panel.sort_values(["permno", "date"]).reset_index(drop=True)
