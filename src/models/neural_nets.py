@@ -6,7 +6,9 @@ Neural network predictors NN1–NN5 from GKX (2020) Table 3.
 Architecture (all variants)
 ----------------------------
 - Input: rank-normalised characteristics (already in [−1, +1])
-- Hidden layers: K × 32 ReLU units with L1 regularisation and Dropout (0.30)
+- Hidden layers: K × 32 units with the pattern:
+    Dense(32, L1) → BatchNorm → ReLU → Dropout(0.50)
+  (Ioffe & Szegedy 2015 BN placement; GKX internet appendix Table I)
 - Output: 1 linear unit (no activation)
 - Optimiser: Adam, lr = 0.001
 - Loss: MSE
@@ -33,7 +35,7 @@ NN_SEEDS: list[int] = list(range(10))
 
 # Shared architecture defaults
 _UNITS = 32
-_DROPOUT = 0.30
+_DROPOUT = 0.50   # GKX internet appendix Table I: dropout rate = 0.50
 _L1 = 1e-5
 _LR = 1e-3
 _BATCH = 10_000
@@ -46,7 +48,11 @@ _PATIENCE = 5
 # ---------------------------------------------------------------------------
 
 def _build_keras_model(n_features: int, n_layers: int) -> "tf.keras.Model":
-    """Build a single Keras model with n_layers hidden layers."""
+    """Build a single Keras model with n_layers hidden layers.
+
+    Layer order per hidden block (Ioffe & Szegedy 2015; GKX internet appendix):
+        Dense(units, L1) → BatchNormalization → ReLU → Dropout
+    """
     import tensorflow as tf
     from tensorflow import keras
 
@@ -56,10 +62,12 @@ def _build_keras_model(n_features: int, n_layers: int) -> "tf.keras.Model":
     for i in range(n_layers):
         x = keras.layers.Dense(
             _UNITS,
-            activation="relu",
             kernel_regularizer=reg,
-            name=f"hidden_{i}",
+            use_bias=False,   # bias absorbed by BatchNorm's beta
+            name=f"dense_{i}",
         )(x)
+        x = keras.layers.BatchNormalization(name=f"bn_{i}")(x)
+        x = keras.layers.Activation("relu", name=f"relu_{i}")(x)
         x = keras.layers.Dropout(_DROPOUT, name=f"drop_{i}")(x)
     outputs = keras.layers.Dense(1, name="ret_pred")(x)
 

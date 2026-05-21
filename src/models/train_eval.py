@@ -50,7 +50,6 @@ from src.config import (
     FEATURES_PANEL_PATH,
     PREDICTIONS_PATH,
     RUN_MANIFEST_PATH,
-    SAMPLE_START,
     VAL_START,
     VAL_END,
     REPLICATE_TEST_END,
@@ -100,9 +99,6 @@ def build_model_catalogue(
     """
     from src.models import linear_models as lm
     from src.models import tree_models as tm
-
-    ols3_cols = lm.OLS3_FEATURES
-    n_ols3 = len([c for c in ols3_cols if c in feature_cols])
 
     catalogue = {}
 

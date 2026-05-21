@@ -32,7 +32,9 @@ def make_rf(max_depth: int = 2) -> Any:
         n_estimators=300,
         max_depth=max_depth,
         min_samples_leaf=1000,
-        max_features="sqrt",
+        # GKX §3: "maximum features per split = P/3" (Breiman 2001 recommendation)
+        # With P=81 characteristics, this gives ~27 candidate features per split.
+        max_features=1 / 3,
         n_jobs=-1,
         random_state=42,
     )

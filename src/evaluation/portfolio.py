@@ -43,29 +43,18 @@ import statsmodels.api as sm
 
 log = logging.getLogger(__name__)
 
-N_DECILES = 10
+_DEFAULT_N_DECILES = 10
 
 
 # ---------------------------------------------------------------------------
 # Portfolio construction
 # ---------------------------------------------------------------------------
 
-def _assign_deciles(grp: pd.DataFrame) -> pd.Series:
-    """
-    Assign decile labels 1–10 within a (model, date) group.
-    Ties are handled with 'first' to ensure equal bin sizes where possible.
-    """
-    return pd.qcut(
-        grp["pred_ret"].rank(method="first"),
-        q=N_DECILES,
-        labels=range(1, N_DECILES + 1),
-    ).astype(int)
-
 
 def build_portfolios(
     preds_df: pd.DataFrame,
     crsp_me: pd.DataFrame,
-    n_deciles: int = N_DECILES,
+    n_deciles: int = _DEFAULT_N_DECILES,
 ) -> pd.DataFrame:
     """
     Build monthly value-weighted decile portfolio returns.
@@ -81,9 +70,6 @@ def build_portfolios(
     -------
     pd.DataFrame with columns: model, date, decile, port_ret, n_stocks, total_me
     """
-    global N_DECILES
-    N_DECILES = n_deciles
-
     # Merge in lagged market cap
     df = preds_df.merge(crsp_me[["permno", "date", "me_lag1"]], on=["permno", "date"], how="left")
 
@@ -93,13 +79,19 @@ def build_portfolios(
     if len(df) < n_before:
         log.info(f"  Dropped {n_before - len(df):,} rows with missing/zero me_lag1")
 
-    # Assign deciles within each (model, date)
+    # Assign deciles within each (model, date) using transform so that the
+    # result aligns with the original row order (apply+explode does NOT
+    # guarantee order when the DataFrame is not sorted by the groupby keys).
     log.info("Assigning decile ranks…")
     df["decile"] = (
-        df.groupby(["model", "date"])
-        .apply(lambda g: _assign_deciles(g), include_groups=False)
-        .explode()
-        .values
+        df.groupby(["model", "date"])["pred_ret"]
+        .transform(
+            lambda s: pd.qcut(
+                s.rank(method="first"),
+                q=n_deciles,
+                labels=range(1, n_deciles + 1),
+            ).astype(int)
+        )
     )
 
     # Value-weighted return within each (model, date, decile)
@@ -140,10 +132,13 @@ def ls_returns(decile_df: pd.DataFrame) -> pd.DataFrame:
     -------
     pd.DataFrame with columns: model, date, long_ret, short_ret, ls_ret
     """
+    # Derive the top decile from the data so this function does not depend
+    # on any module-level state set by build_portfolios.
+    max_decile = int(decile_df["decile"].max())
     p1 = decile_df[decile_df["decile"] == 1][["model", "date", "port_ret"]].rename(
         columns={"port_ret": "short_ret"}
     )
-    p10 = decile_df[decile_df["decile"] == N_DECILES][["model", "date", "port_ret"]].rename(
+    p10 = decile_df[decile_df["decile"] == max_decile][["model", "date", "port_ret"]].rename(
         columns={"port_ret": "long_ret"}
     )
     ls = p1.merge(p10, on=["model", "date"], how="inner")
@@ -198,7 +193,10 @@ def ff_alpha(
         raise ValueError(f"Unknown factor model: {model!r}. Use 'ff3' or 'ff5'.")
 
     X = sm.add_constant(merged[factors].values)
-    res = sm.OLS(y, X).fit(cov_type="HC3")
+    # Newey-West (HAC) standard errors with 12 lags — standard for monthly
+    # portfolio return regressions; corrects for heteroskedasticity AND
+    # autocorrelation (GKX use Newey-West throughout).
+    res = sm.OLS(y, X).fit(cov_type="HAC", cov_kwds={"maxlags": 12})
 
     alpha_monthly = res.params[0]
     t_alpha = res.tvalues[0]
