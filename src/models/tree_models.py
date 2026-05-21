@@ -15,6 +15,7 @@ validation window before the test period begins.
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Any
 
 import numpy as np
@@ -45,13 +46,11 @@ def make_gbrt(learning_rate: float = 0.01, max_depth: int = 2) -> Any:
     LightGBM regressor.  Interface is sklearn-compatible.
     subsample=0.5 and min_child_samples=1000 match GKX §3.
 
-    n_estimators is set to 1000 (not 300) because GKX use a larger tree
-    budget for GBRT.  With lr ≤ 0.01 and 1000 trees the model converges
-    to a sensible solution; with only 300 trees and lr=0.1 it over-steps.
+    n_estimators=300 matches GKX Internet Appendix Table I (T=300 trees).
     """
     from lightgbm import LGBMRegressor
     return LGBMRegressor(
-        n_estimators=1000,
+        n_estimators=300,   # GKX Internet Appendix Table I
         learning_rate=learning_rate,
         max_depth=max_depth,
         subsample=0.5,
@@ -107,8 +106,12 @@ def select_hyperparams(
     for lr in [0.01, 0.1]:
         for d in [1, 2]:
             m = make_gbrt(learning_rate=lr, max_depth=d)
-            m.fit(X_pre_val, y_pre_val)
-            r2 = _oos_r2(y_val, m.predict(X_val), y_bench)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message="X does not have valid feature names"
+                )
+                m.fit(X_pre_val, y_pre_val)
+                r2 = _oos_r2(y_val, m.predict(X_val), y_bench)
             if r2 > best_r2:
                 best_r2, best_lr, best_d = r2, lr, d
     result["gbrt_lr"] = best_lr

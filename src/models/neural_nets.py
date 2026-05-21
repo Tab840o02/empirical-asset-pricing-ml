@@ -125,6 +125,7 @@ class NNEnsemble:
                 batch_size=_BATCH,
                 epochs=_MAX_EPOCHS,
                 validation_split=0.1,
+                shuffle=False,   # preserve time-series order; last 10% = most recent obs
                 callbacks=[cb],
                 verbose=0,
             )

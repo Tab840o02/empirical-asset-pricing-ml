@@ -40,11 +40,16 @@ import argparse
 import json
 import logging
 import time
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+# Suppress LightGBM's spurious "X does not have valid feature names" warning
+# that fires when fitting/predicting with numpy arrays (cosmetic, no impact).
+warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
 from src.config import (
     FEATURES_PANEL_PATH,
