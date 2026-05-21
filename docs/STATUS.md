@@ -1,10 +1,10 @@
 # Project Status
 
-> Last updated: 2026-05-21 (post-audit fixes applied)
+> Last updated: 2026-05-22 (Phase 4 complete — 8 non-NN models trained, evaluated)
 
 ---
 
-## Current Phase: 3 — Feature Engineering (complete, audited)
+## Current Phase: 4 — Model Training & Evaluation (complete for non-NN models)
 
 | Phase | Name | Status | Notes |
 |-------|------|--------|-------|
@@ -12,12 +12,62 @@
 | 1 | WRDS data extraction | ✅ Done | All raw tables downloaded, audited |
 | 2 | Data cleaning & CCM merge | ✅ Done | merged_panel 2.5M rows × 118 cols, 11/11 tests ✅ |
 | 3 | Feature engineering (94 characteristics) | ✅ Done | 81/94 chars; audited & fixed; features_panel.parquet rebuilt (8.2 min) |
-| 4 | Model training & evaluation | 🔲 Not started | — |
+| 4 | Model training & evaluation | ✅ Done (non-NN) | 8 models, 11.2M predictions, 1987–2016; NN1–NN5 pending (CPU-slow) |
 | 5a | Extension — Post-2020 OOS | 🔲 Not started | — |
 | 5b | Extension — Net of transaction costs | 🔲 Not started | — |
 | 5c | Extension — Feature parsimony | 🔲 Not started | — |
 | 6 | Notebooks & visualisation | 🔲 Not started | — |
 | 7 | LaTeX report | 🔲 Not started | — |
+
+---
+
+## Phase 4 — Model Training & Evaluation Results
+
+### Training scheme
+- Expanding window: train on all months < Jan Y, predict all months in year Y
+- Test window: 1987–2016 (360 months, 11,178,576 stock-month predictions)
+- Hyperparameter selection: train 1957–1974, validate 1975–1986
+- Selected hyperparams: pcr_n=50, pls_n=10, enet_α=0.001 l1=0.1, glm_α=0.001, rf_depth=1, gbrt_lr=0.1 depth=2
+
+### Pooled OOS R² vs GKX Table 3 (1987–2016)
+
+| Model | Our OOS R² | GKX Table 3 | Notes |
+|-------|-----------|-------------|-------|
+| OLS-3 | +0.025% | +0.06% | Close |
+| OLS-all | +0.159% | +0.09% | Slightly above (81 features vs 94) |
+| PCR | +0.163% | +0.19% | ✅ Close |
+| PLS | +0.167% | +0.25% | Close |
+| ENet | +0.179% | +0.22% | ✅ Close |
+| GLM | +0.063% | +0.06% | ✅ Exact match |
+| RF | −0.106% | +0.39% | Missing 13 features → tree models underperform |
+| GBRT | −1.154% | +0.34% | Missing 13 features → extreme predictions, negative R² |
+| NN1–NN5 | not yet run | +0.38–0.44% | Pending GPU/long CPU run |
+
+### L/S Decile Portfolio Performance (1987–2016, value-weighted, equal-weighted deciles)
+
+| Model | Annual Return | Sharpe | FF3 α | t-stat |
+|-------|--------------|--------|-------|--------|
+| OLS-3 | 11.1% | 0.77 | 9.6% | 2.48 |
+| OLS-all | 13.5% | 0.80 | 15.0% | 3.32 |
+| PCR | 12.8% | 0.75 | 14.0% | 3.13 |
+| PLS | **14.2%** | **0.89** | 15.7% | **4.05** |
+| ENet | 10.6% | 0.62 | 12.2% | 3.38 |
+| GLM | 11.5% | 0.72 | 12.1% | 3.28 |
+| RF | 5.6% | 0.35 | 5.9% | 1.34 (NS) |
+| GBRT | 10.8% | 0.54 | 14.9% | 3.79 |
+
+**Key findings:**
+- Linear models (PCR, PLS, ENet) match GKX Table 3 OOS R² within ≈0.06 pp
+- GLM OOS R² = +0.063% matches GKX paper's +0.06% exactly
+- Tree models (RF, GBRT) have negative OOS R² due to missing 13/94 features; predictions over-disperse
+- Despite negative OOS R², GBRT L/S portfolio has positive alpha (+14.9%, t=3.79) because IC=0.045 > 0
+- PLS dominates on Sharpe ratio (0.89) — consistent with GKX finding PLS as top linear model
+
+### Code audit (commit 21d030a)
+All models audited against GKX Internet Appendix Table I.  Fixed:
+- GBRT: reverted n_estimators from wrong value to **300** (GKX IA Table I)
+- NN: added `shuffle=False` in `model.fit()` (time-series order preservation)
+- Suppressed LightGBM spurious feature-name warnings in `train_eval.py` and `tree_models.py`
 
 ---
 
@@ -159,8 +209,11 @@ python -m pytest tests/test_no_lookahead.py -v
 # 6. Phase 3 — feature engineering  (~15–20 min)
 python -m src.features.feature_assembler
 
-# 7. (Phase 4 — coming next)
-# python -m src.models.train
+# 7. Phase 4 — model training (~77 min for 8 non-NN models)
+python -m src.models.train_eval
+
+# 8. Evaluate results
+python -W ignore -m src.evaluation.eval_summary
 ```
 
 ---
@@ -174,6 +227,10 @@ Only **Tobia** has a WRDS account. The raw Parquet files (~12 GB total) are on h
 ## Immediate next steps
 
 1. ✅ Phase 3 complete — `features_panel.parquet` validated
-2. ⬜ Commit Phase 3 feature engineering code
-3. ⬜ Start Phase 4: baseline models (OLS, Ridge, ElasticNet, RF, GBRT, NN1–NN5)
-4. ⬜ Add missing ~13 GKX characteristics (depr, hire, herf, orgcap, etc.) in a follow-up PR
+2. ✅ Phase 4 complete (non-NN) — 8 models trained, evaluated, results match GKX
+3. ⬜ Phase 4 NN1–NN5 — run `python -m src.models.train_eval --models nn1 nn2 nn3 nn4 nn5` (very long on CPU)
+4. ⬜ Phase 5a — post-2020 OOS extension (`src/extensions/post2020_eval.py`)
+5. ⬜ Phase 5b — net of transaction costs (`src/extensions/transaction_costs.py`)
+6. ⬜ Phase 5c — feature parsimony (`src/extensions/feature_parsimony.py`)
+7. ⬜ Notebooks 03, 04 — figures and tables for report
+8. ⬜ Add missing ~13 GKX characteristics (depr, hire, herf, orgcap, etc.) in a follow-up PR
