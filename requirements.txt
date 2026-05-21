@@ -29,3 +29,6 @@ ipykernel
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 pytest>=7.0
+
+# ── Deep learning extras ─────────────────────────────────────────────────────
+torch                      # PyTorch (optional; used by some baselines)

@@ -151,3 +151,31 @@ PREDICTIONS_PATH = PROCESSED_DIR / "predictions.parquet"
 PORTFOLIO_RETURNS_PATH = PROCESSED_DIR / "portfolio_returns.parquet"
 LINK_TABLE_PATH = PROCESSED_DIR / "crsp_compustat_link.parquet"
 RUN_MANIFEST_PATH = PROCESSED_DIR / "run_manifest.json"
+
+# ---------------------------------------------------------------------------
+# Backward-compat aliases (matching Phase 0 naming convention)
+# ---------------------------------------------------------------------------
+PROJECT_ROOT = ROOT
+RAW_DATA_DIR = RAW_DIR
+PROCESSED_DATA_DIR = PROCESSED_DIR
+
+# ---------------------------------------------------------------------------
+# Hyperparameter search grids (Phase 4)
+# ---------------------------------------------------------------------------
+HYPERPARAMS: dict = {
+    "pcr":  {"n_components": [3, 5, 10, 20, 50]},
+    "pls":  {"n_components": [3, 5, 10, 20, 50]},
+    "enet": {"alpha": [0.001, 0.01, 0.1], "l1_ratio": [0.1, 0.5, 0.9]},
+    "rf":   {"max_depth": [1, 2, 4], "n_estimators": 300, "min_samples_leaf": 1000},
+    "gbrt": {"learning_rate": [0.01, 0.1], "max_depth": [1, 2], "subsample": 0.5},
+    "nn":   {"hidden_units": 32, "dropout": 0.30, "lr": 1e-3, "n_seeds": 10},
+}
+
+
+# ---------------------------------------------------------------------------
+# Utility: open WRDS connection
+# ---------------------------------------------------------------------------
+def connect_wrds():
+    """Open and return a wrds.Connection(). First call caches credentials interactively."""
+    import wrds
+    return wrds.Connection(wrds_username=WRDS_USER)
