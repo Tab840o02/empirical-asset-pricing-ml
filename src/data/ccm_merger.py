@@ -186,8 +186,13 @@ def _attach_annual(panel: pd.DataFrame, annual: pd.DataFrame) -> pd.DataFrame:
 
 def _attach_quarterly(panel: pd.DataFrame, quarterly: pd.DataFrame) -> pd.DataFrame:
     """
-    Attach the most recent quarterly filing where ``public_date <= ym``,
-    using the same merge_asof approach as the annual attach.
+    Attach the most recent quarterly filing where ``q_public_date <= ym``.
+
+    All quarterly columns are prefixed with ``q_`` (except ``gvkey``, the
+    merge key).  This avoids name collisions with annual columns already in
+    the panel (``datadate``, ``public_date``, ``indfmt``, ``datafmt``,
+    ``popsrc``, ``consol``) which would otherwise produce ``_x``/``_y``
+    suffixed duplicates and silently break the look-ahead-bias tests.
     """
     log.info("Attaching Compustat quarterly data …")
 
@@ -195,21 +200,20 @@ def _attach_quarterly(panel: pd.DataFrame, quarterly: pd.DataFrame) -> pd.DataFr
     panel_linked = panel[has_gvkey].copy()
 
     qtr = quarterly.copy()
-    qtr_id_cols = {"gvkey", "datadate", "public_date", "fyearq", "fqtr",
-                   "indfmt", "datafmt", "popsrc", "consol"}
-    rename_map = {
-        c: f"q_{c}" for c in qtr.columns if c not in qtr_id_cols
-    }
+    # Only gvkey is kept as-is (it's the merge key via `by=`).  Every other
+    # column — including datadate, public_date, fyearq, fqtr, indfmt, etc. —
+    # is prefixed with "q_" to prevent conflicts with annual data in the panel.
+    rename_map = {c: f"q_{c}" for c in qtr.columns if c != "gvkey"}
     qtr = qtr.rename(columns=rename_map)
 
     panel_linked = panel_linked.sort_values(["gvkey", "ym"])
-    qtr = qtr.sort_values(["gvkey", "public_date"])
+    qtr = qtr.sort_values(["gvkey", "q_public_date"])
 
     merged = pd.merge_asof(
         panel_linked,
         qtr,
         left_on="ym",
-        right_on="public_date",
+        right_on="q_public_date",
         by="gvkey",
         direction="backward",
     )

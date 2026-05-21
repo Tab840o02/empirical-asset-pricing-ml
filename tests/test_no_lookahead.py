@@ -100,12 +100,14 @@ class TestAnnualPublicDate:
             "This would introduce look-ahead bias."
         )
 
-    def test_december_fiscal_year_not_available_before_july_next_year(
+    def test_december_fiscal_year_not_available_before_june_next_year(
         self, compustat_clean_annual
     ):
         """
         The classic look-ahead case: a December fiscal year-end (e.g. 2005-12-31)
-        must not become available before 2006-06-30.
+        must not become available before June of the following year (2006-06-30).
+        With a 6-month lag, June is the first acceptable month — months 1–5 of
+        the next calendar year are violations.
         """
         dec_filings = compustat_clean_annual[
             compustat_clean_annual["datadate"].dt.month == 12

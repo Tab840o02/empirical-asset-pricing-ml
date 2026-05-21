@@ -49,6 +49,7 @@ SAMPLE_START: str = "1957-01-01"   # First month included in the panel
 
 # Rolling-window split points (matching GKX §3)
 TRAIN_END: str = "1974-12-31"          # End of initial training window
+VAL_START: str = "1975-01-01"          # Start of validation / hyperparameter tuning window
 VAL_END: str = "1986-12-31"            # End of validation / hyperparameter tuning window
 REPLICATE_TEST_END: str = "2016-12-31" # End of the original GKX test window
 
