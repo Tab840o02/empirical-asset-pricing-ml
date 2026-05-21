@@ -44,10 +44,14 @@ def make_gbrt(learning_rate: float = 0.01, max_depth: int = 2) -> Any:
     """
     LightGBM regressor.  Interface is sklearn-compatible.
     subsample=0.5 and min_child_samples=1000 match GKX §3.
+
+    n_estimators is set to 1000 (not 300) because GKX use a larger tree
+    budget for GBRT.  With lr ≤ 0.01 and 1000 trees the model converges
+    to a sensible solution; with only 300 trees and lr=0.1 it over-steps.
     """
     from lightgbm import LGBMRegressor
     return LGBMRegressor(
-        n_estimators=300,
+        n_estimators=1000,
         learning_rate=learning_rate,
         max_depth=max_depth,
         subsample=0.5,

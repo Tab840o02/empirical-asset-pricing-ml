@@ -40,7 +40,7 @@ import argparse
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -187,9 +187,19 @@ def run(
     features_path: Path = FEATURES_PANEL_PATH,
     output_path: Path = PREDICTIONS_PATH,
     manifest_path: Path = RUN_MANIFEST_PATH,
+    append: bool = False,
 ) -> pd.DataFrame:
     """
     Run the full rolling-window training and prediction loop.
+
+    Parameters
+    ----------
+    append : bool
+        If True and ``output_path`` already exists, load the existing file,
+        drop any rows whose ``model`` is in ``models_to_run`` (so we can
+        overwrite just those models), run the new models, and write the
+        merged result back.  Useful for re-running a single model without
+        losing the other 7.
 
     Returns
     -------
@@ -234,7 +244,7 @@ def run(
 
     all_preds: list[pd.DataFrame] = []
     manifest: dict = {
-        "run_timestamp": datetime.utcnow().isoformat(),
+        "run_timestamp": datetime.now(timezone.utc).isoformat(),
         "test_start": test_start,
         "test_end": test_end,
         "models": list(catalogue.keys()),
@@ -295,6 +305,15 @@ def run(
     predictions = pd.concat(all_preds, ignore_index=True)
     predictions = predictions.sort_values(["model", "date", "permno"]).reset_index(drop=True)
 
+    # Merge with existing file when --append is set
+    if append and output_path.exists():
+        existing = pd.read_parquet(output_path)
+        existing = existing[~existing["model"].isin(models_to_run)]
+        predictions = pd.concat([existing, predictions], ignore_index=True)
+        predictions = predictions.sort_values(["model", "date", "permno"]).reset_index(drop=True)
+        log.info(f"Append mode: merged with existing predictions "
+                 f"({len(existing):,} kept + {len(all_preds)} new batches)")
+
     # Save predictions
     log.info(f"Writing {len(predictions):,} predictions to {output_path} …")
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -326,6 +345,15 @@ def _parse_args() -> argparse.Namespace:
         help=(
             f"Models to train. Use 'all' for all 13 models including NNs. "
             f"Choices: {ALL_MODELS + ['all']}"
+        ),
+    )
+    p.add_argument(
+        "--append",
+        action="store_true",
+        help=(
+            "If set, load existing predictions.parquet, drop the models being "
+            "re-run, append new predictions, and write back.  Useful for "
+            "re-running a single model without losing others."
         ),
     )
     p.add_argument(
@@ -362,6 +390,7 @@ def main() -> None:
         test_start=args.test_start,
         test_end=args.test_end,
         models_to_run=models_to_run,
+        append=args.append,
     )
 
 
