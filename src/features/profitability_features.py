@@ -46,12 +46,133 @@ import logging
 import numpy as np
 import pandas as pd
 
+from src.config import RAW_DIR
+
 log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _compute_ear(panel: pd.DataFrame) -> pd.Series:
+    """
+    Earnings announcement return (ear) — Kishore, Brockman, Altieri & Bethke (2008).
+
+    For each row in the panel, the feature is the 3-day cumulative CRSP return
+    in the window [rdq − 1 trading day, rdq, rdq + 1 trading day], where rdq is
+    the most recent quarterly earnings announcement date (column ``q_rdq``).
+
+    Returns a Series aligned to panel.index.
+    """
+    if "q_rdq" not in panel.columns:
+        log.warning("q_rdq not in panel — ear will be all NaN")
+        return pd.Series(np.nan, index=panel.index, name="ear")
+
+    rdq_col = pd.to_datetime(panel["q_rdq"], errors="coerce")
+    valid = rdq_col.notna()
+    if valid.sum() == 0:
+        return pd.Series(np.nan, index=panel.index, name="ear")
+
+    # Unique (permno, rdq) pairs — these are what we need daily returns for
+    ann = (
+        panel.loc[valid, ["permno"]]
+        .assign(rdq=rdq_col[valid])
+        .drop_duplicates()
+        .sort_values(["permno", "rdq"])
+        .reset_index(drop=True)
+    )
+    ann["permno"] = ann["permno"].astype("int64")
+
+    # Load CRSP daily files for the relevant years (±1 year buffer for edge days)
+    yr_min = int(ann["rdq"].dt.year.min())
+    yr_max = int(ann["rdq"].dt.year.max())
+    parts = []
+    for yr in range(max(yr_min - 1, 1925), yr_max + 2):
+        path = RAW_DIR / f"crsp_daily_{yr}.parquet"
+        if path.exists():
+            df = pd.read_parquet(path, columns=["permno", "date", "ret"])
+            df["permno"] = df["permno"].astype("int64")
+            df["date"] = pd.to_datetime(df["date"])
+            df["ret"] = pd.to_numeric(df["ret"], errors="coerce").astype("float64")
+            parts.append(df)
+
+    if not parts:
+        log.warning("No CRSP daily files found — ear will be all NaN")
+        return pd.Series(np.nan, index=panel.index, name="ear")
+
+    daily = (
+        pd.concat(parts, ignore_index=True)
+        .sort_values(["permno", "date"])
+        .reset_index(drop=True)
+    )
+    # Sequential trading-day index within each permno (used as a positional key)
+    daily["_didx"] = daily.groupby("permno").cumcount()
+
+    # Find the nearest trading day on-or-after each announcement date.
+    # pandas 2.x merge_asof requires the left key to be *globally* monotone,
+    # but after sort_values(["permno","rdq"]) rdq resets for each new permno.
+    # Use numpy searchsorted per permno instead — correct and fast.
+    ann_sorted = ann.sort_values(["permno", "rdq"]).reset_index(drop=True)
+
+    # Build per-permno lookup: permno -> (sorted dates array, _didx array)
+    daily_by_permno: dict = {}
+    for _p, _g in daily.groupby("permno"):
+        _gs = _g.sort_values("date")
+        daily_by_permno[int(_p)] = (
+            _gs["date"].values.astype("datetime64[ns]"),
+            _gs["_didx"].values.astype(np.int64),
+        )
+
+    t_idx_arr = np.full(len(ann_sorted), np.nan, dtype=np.float64)
+    pos = 0
+    for _permno, _grp in ann_sorted.groupby("permno"):
+        n = len(_grp)
+        _entry = daily_by_permno.get(int(_permno))
+        if _entry is not None:
+            _dates, _didx = _entry
+            _rdq_ns = _grp["rdq"].values.astype("datetime64[ns]")
+            _idx = np.searchsorted(_dates, _rdq_ns, side="left")
+            _valid = _idx < len(_dates)
+            # Clip before indexing — np.where evaluates both branches eagerly
+            _idx_clipped = np.clip(_idx, 0, len(_dates) - 1)
+            t_idx_arr[pos:pos + n] = np.where(_valid, _didx[_idx_clipped].astype(float), np.nan)
+        pos += n
+
+    ann_sorted["t_idx"] = t_idx_arr
+    matched = ann_sorted  # columns: permno, rdq, t_idx
+
+    # For each announcement, sum returns over [t-1, t, t+1] trading days
+    ret_lookup = daily[["permno", "_didx", "ret"]].rename(
+        columns={"_didx": "_lookup_idx"}
+    )
+    window_parts = []
+    for offset in (-1, 0, 1):
+        tmp = matched.loc[matched["t_idx"].notna(), ["permno", "rdq", "t_idx"]].copy()
+        tmp["t_idx"] = tmp["t_idx"].astype("int64")
+        tmp["_lookup_idx"] = tmp["t_idx"] + offset
+        tmp = tmp.merge(ret_lookup, on=["permno", "_lookup_idx"], how="left")
+        window_parts.append(tmp[["permno", "rdq", "ret"]])
+
+    ear_df = (
+        pd.concat(window_parts, ignore_index=True)
+        .groupby(["permno", "rdq"], as_index=False)["ret"]
+        .sum(min_count=1)   # NaN if all three days are missing
+        .rename(columns={"ret": "ear"})
+    )
+
+    # Merge ear back to panel rows via (permno, q_rdq)
+    result = pd.Series(np.nan, index=panel.index, name="ear")
+    merge_key = pd.DataFrame(
+        {"permno": panel["permno"].astype("int64"), "rdq": rdq_col},
+        index=panel.index,
+    )
+    merged_back = merge_key.merge(ear_df, on=["permno", "rdq"], how="left")
+    merged_back.index = panel.index
+    result.loc[valid] = merged_back.loc[valid, "ear"]
+    return result
+
 
 def _sic2(p: pd.DataFrame) -> pd.Series:
     sich = p["a_sich"].fillna(-1).astype(int)
@@ -444,6 +565,14 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
         lag_xsga = grp["a_xsga"].shift(k * 12).fillna(0.0)
         oc = oc + (0.85 ** k) * lag_xsga
     out["orgcap"] = (oc / at.fillna(np.nan)).replace([np.inf, -np.inf], np.nan)
+
+    # ------------------------------------------------------------------
+    # Earnings announcement return  (Kishore, Brockman, Altieri & Bethke 2008)
+    # 3-day cumulative return centred on the quarterly earnings announcement date.
+    # Requires CRSP daily files — gracefully returns NaN if files are absent.
+    # ------------------------------------------------------------------
+    log.info("Computing earnings announcement return (ear) from daily CRSP data …")
+    out["ear"] = _compute_ear(panel).values
 
     log.info("Profitability features computed: %d rows, %d features",
              len(out), out.shape[1] - 2)

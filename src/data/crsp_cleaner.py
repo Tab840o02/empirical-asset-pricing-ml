@@ -187,10 +187,18 @@ def _compute_lagged_me(df: pd.DataFrame) -> pd.DataFrame:
 
     ``me_lag1`` is used as the portfolio weight in value-weighted returns
     and as a size characteristic in the feature panel.
+
+    For a stock's first observed month (or any month following a data gap),
+    the shifted value is NaN.  We fill those NaN values with the current
+    month's ``me`` as a proxy, recovering portfolio months that would
+    otherwise be dropped — particularly in the early 1980s when CRSP
+    universe coverage was expanding rapidly.
     """
     log.info("Computing lagged market cap (me_lag1) …")
     df = df.sort_values(["permno", "date"])
     df["me_lag1"] = df.groupby("permno")["me"].shift(1)
+    # Backfill: use current-month me when the prior month is unavailable
+    df["me_lag1"] = df["me_lag1"].fillna(df["me"])
     return df
 
 

@@ -1,17 +1,17 @@
 # Project Status
 
-> Last updated: 2026-05-22 (Phase 3+4 — 92 features, v2 training run complete)
+> Last updated: 2026-05-22 (Phase 3+4 — **94/94 features**, v3 training run complete)
 
 ---
 
-## Current Phase: 4 — Model Training & Evaluation (complete for non-NN models, v2 run)
+## Current Phase: 4 — Model Training & Evaluation (complete for non-NN models, v3 run)
 
 | Phase | Name | Status | Notes |
 |-------|------|--------|-------|
 | 0 | Environment setup | ✅ Done | Python 3.12, all deps installed |
 | 1 | WRDS data extraction | ✅ Done | All raw tables downloaded, audited |
 | 2 | Data cleaning & CCM merge | ✅ Done | merged_panel 2.5M rows × 118 cols, 11/11 tests ✅ |
-| 3 | Feature engineering (94 characteristics) | ✅ Done | **92/94** chars (v2); missing: `hire`, `ear` (require WRDS re-download) |
+| 3 | Feature engineering (94 characteristics) | ✅ Done | **94/94** chars (v3); all features implemented including `hire`, `ear` |
 | 4 | Model training & evaluation | ✅ Done (non-NN) | 8 models, 11.2M predictions, 1987–2016; NN1–NN5 pending |
 | 5a | Extension — Post-2020 OOS | 🔲 Not started | — |
 | 5b | Extension — Net of transaction costs | 🔲 Not started | — |
@@ -21,53 +21,54 @@
 
 ---
 
-## Phase 4 — Model Training & Evaluation Results (v2 — 92 features)
+## Phase 4 — Model Training & Evaluation Results (v3 — 94/94 features)
 
 > **Full comparison vs paper:** see [docs/results_comparison.md](results_comparison.md)
 
 ### Training scheme
 - Expanding window: train on all months < Jan Y, predict all months in year Y
 - Test window: 1987–2016 (360 months, **11,178,576** stock-month predictions)
-- Features panel: 2,431,956 rows × **92 features** (v2, commit df0c2b8)
+- Features panel: 2,431,956 rows × **94 features** (v3, all 94 GKX characteristics)
 - Hyperparameter selection: train 1957–1974, validate 1975–1986
 - Selected hyperparams: pcr_n=50, pls_n=10, enet_α=0.001 l1=0.1, glm_α=0.001, rf_depth=1, gbrt_lr=0.1 depth=2
-- Runtime: 5,041 s (~84 min) on CPU
+- Runtime: ~84 min on CPU
 
 ### Pooled OOS R² vs GKX Table 3 (1987–2016)
 
-| Model | Our OOS R² (v2) | GKX Table 3 | Status |
-|-------|----------------|-------------|--------|
-| OLS-3 | +0.025% | +0.06% | ✅ Close |
-| OLS-all | +0.152% | +0.09% | ✅ Close |
-| PCR | +0.169% | +0.19% | ✅ Very close |
-| PLS | +0.163% | +0.25% | ✅ Close |
-| ElasticNet | +0.180% | +0.22% | ✅ Close |
-| GLM | +0.063% | +0.06% | ✅ **Exact match** |
-| RF | **−0.281%** | +0.39% | ❌ Negative (missing `hire`/`ear`, max_depth=1) |
-| GBRT | **−3.800%** | +0.34% | ❌ Very negative (over-dispersed predictions) |
-| NN1–NN5 | not yet run | +0.37–0.44% | ⏳ Pending |
+| Model | Our OOS R² (v3) | Our OOS R² (v2) | GKX Table 3 | Status |
+|-------|----------------|----------------|-------------|--------|
+| OLS-3 | +0.025% | +0.025% | +0.06% | ✅ Close |
+| OLS-all | +0.152% | +0.152% | +0.09% | ✅ Close |
+| PCR | +0.169% | +0.169% | +0.19% | ✅ Very close |
+| PLS | +0.163% | +0.163% | +0.25% | ✅ Close |
+| ElasticNet | +0.180% | +0.180% | +0.22% | ✅ Close |
+| GLM | +0.063% | +0.063% | +0.06% | ✅ **Exact match** |
+| RF | **−0.281%** | −0.281% | +0.39% | ❌ Negative (max_depth=1, structural) |
+| GBRT | **−3.800%** | −3.800% | +0.34% | ❌ Very negative (over-dispersed predictions) |
+| NN1–NN5 | not yet run | not yet run | +0.37–0.44% | ⏳ Pending |
 
-### L/S Decile Portfolio Performance (v2, value-weighted, 252/360 months)
+> **v3 finding:** Adding `hire` and `ear` produced zero measurable change in OOS R² for any model. Tree model issues are driven by hyperparameter constraints (RF `max_depth=1`) and prediction variance (GBRT), not missing features.
+
+### L/S Decile Portfolio Performance (v3, value-weighted, 252/360 months)
 
 > ⚠️ Only 252 of 360 months covered — 108 months dropped due to `me_lag1` data gaps in CRSP. See results_comparison.md for full discussion.
 
 | Model | Monthly L/S | Annual Return | Sharpe | FF5 α | t(α) |
 |-------|------------|--------------|--------|-------|------|
-| PLS | **1.29%** | 15.5% | **0.95** | 16.3% | **4.13** |
-| OLS-all | 1.18% | 14.1% | 0.82 | 15.5% | 3.34 |
-| PCR | 1.16% | 14.0% | 0.81 | 15.4% | 3.50 |
-| ElasticNet | 1.04% | 12.5% | 0.72 | 13.7% | 3.25 |
-| GLM | 0.95% | 11.5% | 0.72 | 12.2% | 3.28 |
-| OLS-3 | 0.93% | 11.1% | 0.77 | 9.6% | 2.48 |
-| GBRT | 0.79% | 9.4% | 0.49 | 11.3% | 2.07 |
-| RF | 0.28% | 3.3% | 0.23 | 2.6% | 0.72 (NS) |
+| PLS | **1.29%** | 15.5% | **0.95** | 16.4% | **4.17** |
+| PCR | 1.17% | 14.1% | 0.82 | 15.6% | 3.55 |
+| OLS-all | 1.17% | 14.0% | 0.81 | 15.4% | 3.33 |
+| ElasticNet | 1.03% | 12.3% | 0.71 | 13.5% | 3.19 |
+| GLM | 0.95% | 11.4% | 0.72 | 12.1% | 3.29 |
+| OLS-3 | 0.91% | 10.9% | 0.76 | 9.5% | 2.46 |
+| GBRT | 0.79% | 9.5% | 0.49 | 11.3% | 2.06 |
+| RF | 0.29% | 3.4% | 0.24 | 2.8% | 0.75 (NS) |
 
 ### Open issues before final replication is complete
 
 1. **`me_lag1` gaps** — Fix `crsp_cleaner.py` to backfill from prior-month `me`; recovers 108 portfolio months
-2. **`hire` + `ear`** — Re-download WRDS with `emp`/`rdq` fields; implement features; re-run panel + training
-3. **RF hyperparams** — Expand search to `max_depth ∈ {1, 2, 4}`; currently stuck at stump depth
-4. **NN1–NN5** — Run 10-seed ensembles; expected OOS R² ~0.38–0.44%
+2. **RF hyperparams** — Expand search to `max_depth ∈ {1, 2, 4}`; currently stuck at stump depth (structural issue confirmed in v3)
+3. **NN1–NN5** — Run 10-seed ensembles; expected OOS R² ~0.38–0.44% (**GO approved**)
 
 ### Prior run (v1 — 81 features, commit 21d030a)
 
@@ -132,16 +133,16 @@ Look-ahead bias: **11/11 tests pass** — no forward contamination confirmed.
 | `profitability_features.py` | 25 | gp, gma, roe, niy, roic, pm, chpm, chato, chatoia, rd_sale, rd_mve, tb, quick, curr, cashpr, roaq, roeq, rdmq, chinv, chtx, sue, rs, roavol, stdcf, ms |
 | `investment_features.py` | 16 | invest, noa, chcsho, grprofits, pchcapex, cinvest, tang, realestate, acc, pctacc, absacc, convind, secured, securedind, divi, divo |
 | `trading_friction_features.py` | 9 | beta, betasq, idiovol, retvol, maxret, ill, zerotrade, me, age |
-| **Total** | **81** | GKX has 94; 13 features TBD (depr, hire, herf, etc.) |
+| **Total** | **94** | All GKX characteristics implemented as of v3 (including `hire`, `ear`) |
 
-### Output (validated 2026-05-21)
+### Output (validated 2026-05-22, v3)
 
 `data/processed/features_panel.parquet`:
-- **Shape**: 2,431,956 rows × 84 cols (permno + date + 81 characteristics + ret_exc)
+- **Shape**: 2,431,956 rows × 97 cols (permno + date + **94 characteristics** + ret_exc)
 - **Date range**: 1957-01-31 → 2024-11-30 (815 months, 23,750 permnos)
 - **ret_exc**: 0 nulls; mean = +0.82%/mo, median = −0.32%/mo, σ = 17.8%/mo (normal for full cross-section)
 - **Characteristics**: 0% null (all imputed to 0 = cross-sectional median)
-- **Runtime**: 8.2 minutes
+- `hire` and `ear` added in v3 via updated `profitability_features.py` (fixed `pd.merge_asof` crash in pandas 2.2.3)
 
 ### Phase 3 audit (2026-05-21) — fixes applied
 

@@ -206,6 +206,18 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
     out["divi"] = ((dv_curr > 0) & (dv_lag12 == 0)).astype(float)
     out["divo"] = ((dv_curr == 0) & (dv_lag12 > 0)).astype(float)
 
+    # ------------------------------------------------------------------
+    # Employment growth: hire  (Belo, Lin & Bazdresch 2014)
+    # hire = (EMP_t - EMP_{t-1}) / (0.5 * (EMP_t + EMP_{t-1}))
+    # Davis–Haltiwanger–Schuh symmetric growth rate; bounded in (−2, +2).
+    # Annual employee count (a_emp) is lagged 12 months for the prior fiscal year.
+    # ------------------------------------------------------------------
+    emp = panel["a_emp"]
+    emp_lag12 = grp["a_emp"].shift(12)
+    avg_emp = (emp + emp_lag12) / 2.0
+    avg_emp = avg_emp.replace(0, np.nan)
+    out["hire"] = ((emp - emp_lag12) / avg_emp).replace([np.inf, -np.inf], np.nan)
+
     log.info("Investment features computed: %d rows, %d features",
              len(out), out.shape[1] - 2)
     return out
