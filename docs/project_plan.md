@@ -177,8 +177,8 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 | PLS | `linear_models.py` | # latent factors ∈ {3, 5, 10, 20, 50} |
 | Elastic Net | `linear_models.py` | α ∈ {0.001, 0.01, 0.1}, l1_ratio ∈ {0.1, 0.5, 0.9} |
 | GLM (group LASSO) | `linear_models.py` | Group penalty λ via validation |
-| Random Forest | `tree_models.py` | max_depth ∈ {1, 2, 4}, n_estimators ≥ 300, min_samples_leaf = 1000 |
-| GBRT | `tree_models.py` | learning_rate ∈ {0.01, 0.1}, max_depth ∈ {1, 2}, subsample = 0.5 |
+| Random Forest | `tree_models.py` | max_depth ∈ {2, 3, 4}, n_estimators ≥ 300, min_samples_leaf = 1000; selected: max_depth=2 |
+| GBRT | `tree_models.py` | learning_rate = 0.01 (fixed), max_depth ∈ {1, 2}, subsample = 0.5; selected: lr=0.01, depth=2 |
 | NN1–NN5 | `neural_nets.py` | hidden units per layer = 32, dropout = 0.30, L1 penalty, Adam lr = 0.001, **ensemble of 10 seeds** |
 
 ### Training Loop (`src/models/train_eval.py`)

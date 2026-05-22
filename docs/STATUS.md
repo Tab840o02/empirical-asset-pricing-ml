@@ -1,6 +1,6 @@
 # Project Status
 
-> Last updated: 2026-05-22 (Phase 3+4 — **94/94 features**, v4 tree rerun complete, NN handoff ready)
+> Last updated: 2026-05-22 (Phase 3+4 — **94/94 features**, 360-month portfolio fix, NN1 training in progress)
 
 ---
 
@@ -12,7 +12,7 @@
 | 1 | WRDS data extraction | ✅ Done | All raw tables downloaded, audited |
 | 2 | Data cleaning & CCM merge | ✅ Done | merged_panel 2.5M rows × 118 cols, 11/11 tests ✅ |
 | 3 | Feature engineering (94 characteristics) | ✅ Done | **94/94** chars (v3); all features implemented including `hire`, `ear` |
-| 4 | Model training & evaluation | ✅ Done (non-NN) | 8 models, 11.2M predictions, 1987–2016; v4 tree rerun validated; NN1–NN5 pending overnight |
+| 4 | Model training & evaluation | ✅ Done (non-NN) | 8 models, 11.2M predictions, 1987–2016; portfolio fix: 360/360 months; NN1–NN5 pending |
 | 5a | Extension — Post-2020 OOS | 🔲 Not started | — |
 | 5b | Extension — Net of transaction costs | 🔲 Not started | — |
 | 5c | Extension — Feature parsimony | 🔲 Not started | — |
@@ -35,55 +35,39 @@
 
 ### Pooled OOS R² vs GKX Table 3 (1987–2016)
 
-| Model | Our OOS R² (v4) | Our OOS R² (v3) | GKX Table 3 | Status |
-|-------|----------------|----------------|-------------|--------|
-| OLS-3 | +0.025% | +0.025% | +0.06% | ✅ Close |
-| OLS-all | +0.152% | +0.152% | +0.09% | ✅ Close |
-| PCR | +0.169% | +0.169% | +0.19% | ✅ Very close |
-| PLS | +0.163% | +0.163% | +0.25% | ✅ Close |
-| ElasticNet | +0.180% | +0.180% | +0.22% | ✅ Close |
-| GLM | +0.063% | +0.063% | +0.06% | ✅ **Exact match** |
-| RF | **−0.509%** | −0.281% | +0.39% | ❌ Negative (depth=2 still fails) |
-| GBRT | **−0.989%** | −3.800% | +0.34% | ⚠️ Improved sharply, still negative |
-| NN1–NN5 | not yet run | not yet run | +0.37–0.44% | ⏳ Pending |
+| Model | Our OOS R² | GKX Table 3 | Status |
+|-------|-----------|-------------|--------|
+| OLS-3 | +0.025% | +0.06% | ✅ Close |
+| OLS-all | +0.152% | +0.09% | ✅ Close |
+| PCR | +0.169% | +0.19% | ✅ Very close |
+| PLS | +0.163% | +0.25% | ✅ Close |
+| ElasticNet | +0.180% | +0.22% | ✅ Close |
+| GLM | +0.063% | +0.06% | ✅ **Exact match** |
+| RF | −0.509% | +0.39% | ❌ Negative |
+| GBRT | −0.989% | +0.34% | ⚠️ Improved, still negative |
+| NN1–NN5 | not yet run | +0.37–0.44% | ⏳ Pending |
 
 > **v4 finding:** The quick tree-fix pass validated the pipeline logic. Forcing RF to search deeper trees selected `max_depth=2` but worsened RF OOS R². Restricting GBRT to `lr=0.01` improved OOS R² from `−3.80%` to `−0.99%` by reducing prediction variance.
 
 ### L/S Decile Portfolio Performance (v4, value-weighted, 252/360 months)
 
-> ⚠️ Only 252 of 360 months covered — 108 months dropped due to `me_lag1` data gaps in CRSP. See results_comparison.md for full discussion.
+> **Portfolio fix:** CRSP dates in `crsp_clean.parquet` are raw trading dates (e.g., `1987-05-29`). Predictions use calendar month-end dates (`1987-05-31`). The merge silently dropped 108 months. Fixed in `src/evaluation/portfolio.py` with `pd.offsets.MonthEnd(0)` normalization. Coverage is now **360/360**.
 
 | Model | Monthly L/S | Annual Return | Sharpe | FF5 α | t(α) |
 |-------|------------|--------------|--------|-------|------|
-| PLS | **1.29%** | 15.5% | **0.95** | 16.4% | **4.17** |
-| PCR | 1.17% | 14.1% | 0.82 | 15.6% | 3.55 |
-| OLS-all | 1.17% | 14.0% | 0.81 | 15.4% | 3.33 |
-| ElasticNet | 1.03% | 12.3% | 0.71 | 13.5% | 3.19 |
-| GLM | 0.95% | 11.4% | 0.72 | 12.1% | 3.29 |
-| OLS-3 | 0.91% | 10.9% | 0.76 | 9.5% | 2.46 |
-| GBRT | 0.15% | 1.8% | 0.11 | 1.5% | 0.35 (NS) |
-| RF | 0.48% | 5.8% | 0.34 | 5.2% | 1.08 (NS) |
+| PLS | **1.07%** | 12.9% | **0.85** | 13.2% | **4.76** |
+| PCR | 1.10% | 13.2% | 0.81 | 14.1% | 4.42 |
+| OLS-all | 1.00% | 12.0% | 0.74 | 12.5% | 3.81 |
+| ElasticNet | 0.99% | 11.8% | 0.72 | 12.5% | 3.84 |
+| OLS-3 | 0.86% | 10.3% | 0.70 | 9.3% | 3.35 |
+| GLM | 0.75% | 9.0% | 0.56 | 9.0% | 3.57 |
+| RF | 0.13% | 1.6% | 0.10 | 2.3% | 0.61 (NS) |
+| GBRT | 0.06% | 0.8% | 0.04 | 1.1% | 0.30 (NS) |
 
-### Open issues before final replication is complete
+### Open issues
 
-1. **`me_lag1` gaps** — Fix `crsp_cleaner.py` to backfill from prior-month `me`; recovers 108 portfolio months
-2. **Tree models remain below paper** — v4 removed the main quick-fix hypotheses (`rf_depth=1`, `gbrt_lr=0.1`) but both tree models still miss GKX; further tree work is optional and no longer a blocker for NN training
-3. **NN1–NN5** — Run 10-seed ensembles overnight; append path and evaluation pipeline are fully validated (**GO approved**)
-
-### Prior run (v1 — 81 features, commit 21d030a)
-
-| Model | OOS R² (v1) | OOS R² (v2) | Change |
-|-------|------------|------------|--------|
-| OLS-3 | +0.025% | +0.025% | — |
-| OLS-all | +0.159% | +0.152% | −0.007 pp |
-| PCR | +0.163% | +0.169% | +0.006 pp |
-| PLS | +0.167% | +0.163% | −0.004 pp |
-| ElasticNet | +0.179% | +0.180% | +0.001 pp |
-| GLM | +0.063% | +0.063% | — |
-| RF | −0.106% | −0.281% | −0.175 pp |
-| GBRT | −1.154% | −3.800% | −2.646 pp |
-
-> The added 11 features improved linear model R² marginally but worsened tree model R². The later v4 rerun showed that removing the stump-only RF setting and forcing GBRT to `lr=0.01` fixes only part of the tree-model problem: GBRT improves materially, RF does not. Rank IC remains positive for all models.
+1. **Tree models remain below paper** — both RF and GBRT OOS R² are negative and portfolio Sharpes are well below GKX; further tree work is optional
+2. **NN1–NN5** — NN1 training in progress; NN2–5 queued
 
 ---
 
