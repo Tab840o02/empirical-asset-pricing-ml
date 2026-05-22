@@ -6,6 +6,8 @@ data/**/*.h5
 data/**/*.hdf5
 data/**/*.parquet
 data/**/*.feather
+data/**/*.py
+data/**/*.json
 
 # ──────────────────────────────────────────────
 # Python
