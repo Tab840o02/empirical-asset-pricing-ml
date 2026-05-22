@@ -70,6 +70,12 @@ def build_portfolios(
     -------
     pd.DataFrame with columns: model, date, decile, port_ret, n_stocks, total_me
     """
+    # Normalize CRSP dates to calendar month-end so they align with prediction
+    # dates, which are always month-end (e.g., CRSP trades on 1987-05-29 but
+    # predictions carry the date 1987-05-31).
+    crsp_me = crsp_me.copy()
+    crsp_me["date"] = crsp_me["date"] + pd.offsets.MonthEnd(0)
+
     # Merge in lagged market cap
     df = preds_df.merge(crsp_me[["permno", "date", "me_lag1"]], on=["permno", "date"], how="left")
 
