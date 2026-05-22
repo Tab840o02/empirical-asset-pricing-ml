@@ -113,7 +113,7 @@ NN_SEEDS: list[int] = list(range(10))  # 10 ensemble seeds (0–9), averaged bef
 
 NN_PARAMS: dict = {
     "hidden_units": 32,
-    "dropout_rate": 0.30,
+    "dropout_rate": 0.50,   # GKX internet appendix Table I
     "l1_penalty": 1e-5,
     "learning_rate": 1e-3,
     "batch_size": 10_000,
@@ -168,7 +168,7 @@ HYPERPARAMS: dict = {
     "enet": {"alpha": [0.001, 0.01, 0.1], "l1_ratio": [0.1, 0.5, 0.9]},
     "rf":   {"max_depth": [1, 2, 4], "n_estimators": 300, "min_samples_leaf": 1000},
     "gbrt": {"learning_rate": [0.01, 0.1], "max_depth": [1, 2], "subsample": 0.5},
-    "nn":   {"hidden_units": 32, "dropout": 0.30, "lr": 1e-3, "n_seeds": 10},
+    "nn":   {"hidden_units": 32, "dropout": 0.50, "lr": 1e-3, "n_seeds": 10},  # GKX IA Table I
 }
 
 

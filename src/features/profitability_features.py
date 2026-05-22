@@ -110,15 +110,38 @@ def _compute_ear(panel: pd.DataFrame) -> pd.Series:
     # Sequential trading-day index within each permno (used as a positional key)
     daily["_didx"] = daily.groupby("permno").cumcount()
 
-    # Find the nearest trading day on-or-after each announcement date
-    matched = pd.merge_asof(
-        ann.sort_values(["permno", "rdq"]),
-        daily[["permno", "date", "_didx"]].sort_values(["permno", "date"]),
-        left_on="rdq",
-        right_on="date",
-        by="permno",
-        direction="forward",  # closest trading day >= rdq
-    ).rename(columns={"_didx": "t_idx"})
+    # Find the nearest trading day on-or-after each announcement date.
+    # pandas 2.x merge_asof requires the left key to be *globally* monotone,
+    # but after sort_values(["permno","rdq"]) rdq resets for each new permno.
+    # Use numpy searchsorted per permno instead — correct and fast.
+    ann_sorted = ann.sort_values(["permno", "rdq"]).reset_index(drop=True)
+
+    # Build per-permno lookup: permno -> (sorted dates array, _didx array)
+    daily_by_permno: dict = {}
+    for _p, _g in daily.groupby("permno"):
+        _gs = _g.sort_values("date")
+        daily_by_permno[int(_p)] = (
+            _gs["date"].values.astype("datetime64[ns]"),
+            _gs["_didx"].values.astype(np.int64),
+        )
+
+    t_idx_arr = np.full(len(ann_sorted), np.nan, dtype=np.float64)
+    pos = 0
+    for _permno, _grp in ann_sorted.groupby("permno"):
+        n = len(_grp)
+        _entry = daily_by_permno.get(int(_permno))
+        if _entry is not None:
+            _dates, _didx = _entry
+            _rdq_ns = _grp["rdq"].values.astype("datetime64[ns]")
+            _idx = np.searchsorted(_dates, _rdq_ns, side="left")
+            _valid = _idx < len(_dates)
+            # Clip before indexing — np.where evaluates both branches eagerly
+            _idx_clipped = np.clip(_idx, 0, len(_dates) - 1)
+            t_idx_arr[pos:pos + n] = np.where(_valid, _didx[_idx_clipped].astype(float), np.nan)
+        pos += n
+
+    ann_sorted["t_idx"] = t_idx_arr
+    matched = ann_sorted  # columns: permno, rdq, t_idx
 
     # For each announcement, sum returns over [t-1, t, t+1] trading days
     ret_lookup = daily[["permno", "_didx", "ret"]].rename(

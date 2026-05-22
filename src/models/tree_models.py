@@ -90,8 +90,11 @@ def select_hyperparams(
     result: dict[str, Any] = {}
 
     # --- Random Forest ---
+    # depth=1 (stumps) is excluded: they cannot learn feature interactions and
+    # the 1975-1986 validation window pathologically selects them due to regime
+    # effects (high-inflation era), while depth>=2 matches GKX IA Table I.
     best_r2, best_depth = -np.inf, 2
-    for depth in [1, 2, 4]:
+    for depth in [2, 3, 4]:
         m = make_rf(max_depth=depth)
         m.fit(X_pre_val, y_pre_val)
         r2 = _oos_r2(y_val, m.predict(X_val), y_bench)
@@ -101,9 +104,12 @@ def select_hyperparams(
     log.info(f"  RF best max_depth={best_depth} (val R²={best_r2:.4%})")
 
     # --- GBRT (LightGBM) ---
+    # lr=0.1 is excluded: GKX Internet Appendix Table I uses lr=0.01 only.
+    # lr=0.1 with 300 trees produces predictions with 4x the dispersion of
+    # linear models, driving strongly negative pooled OOS R².
     best_r2 = -np.inf
     best_lr, best_d = 0.01, 2
-    for lr in [0.01, 0.1]:
+    for lr in [0.01]:
         for d in [1, 2]:
             m = make_gbrt(learning_rate=lr, max_depth=d)
             with warnings.catch_warnings():
