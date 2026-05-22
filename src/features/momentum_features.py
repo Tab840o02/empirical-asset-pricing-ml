@@ -20,6 +20,7 @@ std_turn    – Std-dev of monthly turnover past 3 months
 dolvol      – Log average daily dollar volume past 3 months
 std_dolvol  – Std-dev of log monthly dollar volume past 3 months
 mve_ia      – Log(ME) minus within-industry average log(ME)
+herf        – Industry sales concentration (Herfindahl-Hirschman index, Hou & Robinson 2006)
 """
 
 from __future__ import annotations
@@ -147,6 +148,28 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
         .transform("mean")
     )
     out["mve_ia"] = (log_me.values - ind_avg_logme.values)
+
+    # ------------------------------------------------------------------
+    # herf — Industry sales HHI  (Hou & Robinson 2006)
+    # HHI = Σ_j (sale_j / Σ_k sale_k)^2  within each 2-digit SIC industry × month
+    # Firms with missing SICH or SALE get NaN; normalized cross-sectionally later.
+    # ------------------------------------------------------------------
+    sich_s = panel["a_sich"].fillna(-1).astype(int)
+    sic2_h = (sich_s // 10).clip(lower=0)
+    sale_h = panel["a_sale"].where(panel["a_sale"].notna() & (sic2_h > 0), other=np.nan)
+
+    tmp_herf = pd.DataFrame({
+        "date": panel["date"].values,
+        "sic2": sic2_h.values,
+        "sale": sale_h.values,
+    }, index=panel.index)
+
+    industry_total = tmp_herf.groupby(["date", "sic2"])["sale"].transform("sum").replace(0, np.nan)
+    ms_h = tmp_herf["sale"] / industry_total
+    ms_sq = ms_h ** 2
+    tmp_herf["ms_sq"] = ms_sq.values
+    out["herf"] = tmp_herf.groupby(["date", "sic2"])["ms_sq"].transform("sum")
+    out["herf"] = out["herf"].where(sic2_h > 0, other=np.nan)
 
     log.info("Momentum features computed: %d rows, %d features",
              len(out), out.shape[1] - 2)

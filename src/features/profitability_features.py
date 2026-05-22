@@ -19,12 +19,18 @@ roeq        – Quarterly ROE: IBQ / CEQQ
 rdmq        – R&D to market cap (quarterly): XRDQ / ME
 rd_sale     – R&D / sales: XRD / SALE
 rd_mve      – R&D / market equity: XRD / ME
-hire        – Employee growth (requires EMP column; set NaN if missing)
+depr        – Depreciation / PP&E: DP / PPENT  (Holthausen & Larcker 1992)
+pchdepr     – % change in DP/PPENT  (Holthausen & Larcker 1992)
+rna         – Return on net assets: IB / avg(NOA) (Soliman 2008)
 ms          – Mohanram's G-score (8 binary signals)
 chinv       – Quarterly change in inventory: ΔINVTQ / ATQ
 chtx        – Quarterly change in taxes (TXTQ or TXDIQ)
 sue         – Standardized unexpected earnings (EPS surprise)
 rs          – Revenue surprise (quarterly sales surprise)
+rsup        – Quarterly revenue surprise: ΔsaleQ_{t,t-4} / ME  (Kama 2009)
+nincr       – Consecutive quarterly EPS increases  (Barth et al. 1999)
+ps          – Piotroski F-score: sum of 9 binary profitability signals (Piotroski 2000)
+orgcap      – Organisational capital via perpetual inventory of SG&A  (Eisfeldt & Papanikolaou 2013)
 roavol      – Standard deviation of quarterly ROA over 8 quarters
 stdcf       – Standard deviation of quarterly cash flow scaled by assets
 cashpr      – Cash productivity: (ME + DLTT - AT) / CHE
@@ -310,6 +316,134 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
                   (csho_curr <= csho_lag).astype(float))
 
     out["ms"] = g1 + g2 + g3 + g4 + g5 + g6 + g7 + g8
+
+    # ------------------------------------------------------------------
+    # Depreciation / PP&E  (Holthausen & Larcker 1992)
+    # ------------------------------------------------------------------
+    ppent = panel["a_ppent"].replace(0, np.nan)
+    dp = panel["a_dp"].fillna(0.0)
+    depr_rate = (dp / ppent).replace([np.inf, -np.inf], np.nan)
+    out["depr"] = depr_rate
+
+    # ------------------------------------------------------------------
+    # % change in DP/PPENT  (Holthausen & Larcker 1992)
+    # ------------------------------------------------------------------
+    depr_lag12 = (
+        grp["a_dp"].shift(12).fillna(0.0)
+        / grp["a_ppent"].shift(12).replace(0, np.nan)
+    ).replace([np.inf, -np.inf], np.nan)
+    out["pchdepr"] = ((depr_rate - depr_lag12) / depr_lag12.abs().replace(0, np.nan)).replace(
+        [np.inf, -np.inf], np.nan
+    )
+
+    # ------------------------------------------------------------------
+    # Return on net assets  (Soliman 2008)
+    # NOA = AT - CHE - IVAO  (total assets minus financial assets)
+    # rna = IB / avg(NOA_t, NOA_{t-12})
+    # ------------------------------------------------------------------
+    che = panel["a_che"].fillna(0.0)
+    ivao = panel["a_ivao"].fillna(0.0)
+    noa = panel["a_at"].fillna(0.0) - che - ivao
+    noa_lag12 = (
+        grp["a_at"].shift(12).fillna(0.0)
+        - grp["a_che"].shift(12).fillna(0.0)
+        - grp["a_ivao"].shift(12).fillna(0.0)
+    )
+    noa_avg = ((noa + noa_lag12) / 2.0).replace(0, np.nan)
+    out["rna"] = (panel["a_ib"] / noa_avg).replace([np.inf, -np.inf], np.nan)
+
+    # ------------------------------------------------------------------
+    # Quarterly revenue surprise  (Kama 2009)
+    # rsup = (SALEQ_t - SALEQ_{t-4}) / |ME|
+    # where SALEQ_{t-4} is the same quarter last year (12 monthly lags)
+    # ------------------------------------------------------------------
+    saleq = panel["q_saleq"]
+    saleq_lag4q = grp["q_saleq"].shift(12)   # 4 quarters ≈ 12 monthly lags
+    out["rsup"] = ((saleq - saleq_lag4q) / me.abs().replace(0, np.nan)).replace(
+        [np.inf, -np.inf], np.nan
+    )
+
+    # ------------------------------------------------------------------
+    # Number of consecutive quarterly earnings increases  (Barth et al. 1999)
+    # Compares each quarter's EPS to the same quarter last year (Y-o-Y).
+    # Look back up to 8 quarters.
+    # ------------------------------------------------------------------
+    eps = panel["q_epspxq"]
+    # Compute 8 Y-o-Y change indicators sampled at 3-monthly intervals
+    inc_flags = []
+    for q in range(8):
+        lag_curr = grp["q_epspxq"].shift(q * 3)
+        lag_year = grp["q_epspxq"].shift(q * 3 + 12)
+        inc = (lag_curr - lag_year).fillna(0.0) > 0
+        inc_flags.append(inc.astype(float))
+
+    # Vectorised consecutive count: running product × contribution
+    running = inc_flags[0].copy()
+    nincr_val = running.copy()
+    for i in range(1, 8):
+        running = running * inc_flags[i]
+        nincr_val = nincr_val + running
+    out["nincr"] = nincr_val
+
+    # ------------------------------------------------------------------
+    # Piotroski F-score  (Piotroski 2000) — 9 binary profitability signals
+    # ------------------------------------------------------------------
+    at_p = panel["a_at"].replace(0, np.nan)
+    at_lag_p = grp["a_at"].shift(12).replace(0, np.nan)
+    ib_p = panel["a_ib"].fillna(0.0)
+    oancf_p = panel["a_oancf"].fillna(0.0)
+    dltt_p = panel["a_dltt"].fillna(0.0)
+
+    roa_p = ib_p / at_lag_p
+    cfo_p = oancf_p / at_p
+    roa_lag_p = grp["a_ib"].shift(12).fillna(0.0) / grp["a_at"].shift(24).replace(0, np.nan)
+
+    F1 = (roa_p > 0).astype(float)
+    F2 = (cfo_p > 0).astype(float)
+    F3 = (roa_p > roa_lag_p).astype(float)
+    F4 = (cfo_p > roa_p).astype(float)   # accrual quality: CFO > ROA
+
+    lev_p = dltt_p / at_p.fillna(np.nan)
+    lev_lag_p = grp["a_dltt"].shift(12).fillna(0.0) / at_lag_p
+    F5 = (lev_p < lev_lag_p).astype(float)  # leverage decreased
+
+    lct_p = panel["a_lct"].replace(0, np.nan)
+    curr_p = panel["a_act"] / lct_p
+    curr_lag_p = grp["a_act"].shift(12) / grp["a_lct"].shift(12).replace(0, np.nan)
+    F6 = (curr_p > curr_lag_p).astype(float)  # liquidity improved
+
+    csho_p = panel["a_csho"].fillna(0.0)
+    csho_lag_p = grp["a_csho"].shift(12).fillna(0.0)
+    F7 = (csho_p <= csho_lag_p).astype(float)  # no dilution
+
+    sale_p = panel["a_sale"].replace(0, np.nan)
+    sale_lag_p = grp["a_sale"].shift(12).replace(0, np.nan)
+    cogs_p = panel["a_cogs"].fillna(0.0)
+    cogs_lag_p = grp["a_cogs"].shift(12).fillna(0.0)
+    margin_p = (sale_p - cogs_p) / sale_p
+    margin_lag_p = (sale_lag_p - cogs_lag_p) / sale_lag_p
+    F8 = (margin_p > margin_lag_p).astype(float)
+
+    ato_p = panel["a_sale"] / at_p
+    ato_lag_p = grp["a_sale"].shift(12) / at_lag_p
+    F9 = (ato_p > ato_lag_p).astype(float)
+
+    for f in [F1, F2, F3, F4, F5, F6, F7, F8, F9]:
+        f.fillna(0.0, inplace=True)
+    out["ps"] = F1 + F2 + F3 + F4 + F5 + F6 + F7 + F8 + F9
+
+    # ------------------------------------------------------------------
+    # Organisational capital  (Eisfeldt & Papanikolaou 2013)
+    # Perpetual inventory of SG&A using δ = 0.15, initial = XSGA / 0.25
+    # orgcap = OC_t / AT_t   (nominal, cross-sectionally rank-normalised)
+    # OC_t ≈ Σ_{k=0}^{14} 0.85^k × XSGA_{t - k×12}
+    # ------------------------------------------------------------------
+    xsga = panel["a_xsga"].fillna(0.0)
+    oc = xsga.copy()   # k=0 contribution (0.85^0 = 1)
+    for k in range(1, 15):
+        lag_xsga = grp["a_xsga"].shift(k * 12).fillna(0.0)
+        oc = oc + (0.85 ** k) * lag_xsga
+    out["orgcap"] = (oc / at.fillna(np.nan)).replace([np.inf, -np.inf], np.nan)
 
     log.info("Profitability features computed: %d rows, %d features",
              len(out), out.shape[1] - 2)
