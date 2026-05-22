@@ -1,23 +1,88 @@
 # Project Status
 
-> Last updated: 2026-05-21 (post-audit fixes applied)
+> Last updated: 2026-05-22 (Phase 3+4 — 92 features, v2 training run complete)
 
 ---
 
-## Current Phase: 3 — Feature Engineering (complete, audited)
+## Current Phase: 4 — Model Training & Evaluation (complete for non-NN models, v2 run)
 
 | Phase | Name | Status | Notes |
 |-------|------|--------|-------|
 | 0 | Environment setup | ✅ Done | Python 3.12, all deps installed |
 | 1 | WRDS data extraction | ✅ Done | All raw tables downloaded, audited |
 | 2 | Data cleaning & CCM merge | ✅ Done | merged_panel 2.5M rows × 118 cols, 11/11 tests ✅ |
-| 3 | Feature engineering (94 characteristics) | ✅ Done | 81/94 chars; audited & fixed; features_panel.parquet rebuilt (8.2 min) |
-| 4 | Model training & evaluation | 🔲 Not started | — |
+| 3 | Feature engineering (94 characteristics) | ✅ Done | **92/94** chars (v2); missing: `hire`, `ear` (require WRDS re-download) |
+| 4 | Model training & evaluation | ✅ Done (non-NN) | 8 models, 11.2M predictions, 1987–2016; NN1–NN5 pending |
 | 5a | Extension — Post-2020 OOS | 🔲 Not started | — |
 | 5b | Extension — Net of transaction costs | 🔲 Not started | — |
 | 5c | Extension — Feature parsimony | 🔲 Not started | — |
 | 6 | Notebooks & visualisation | 🔲 Not started | — |
 | 7 | LaTeX report | 🔲 Not started | — |
+
+---
+
+## Phase 4 — Model Training & Evaluation Results (v2 — 92 features)
+
+> **Full comparison vs paper:** see [docs/results_comparison.md](results_comparison.md)
+
+### Training scheme
+- Expanding window: train on all months < Jan Y, predict all months in year Y
+- Test window: 1987–2016 (360 months, **11,178,576** stock-month predictions)
+- Features panel: 2,431,956 rows × **92 features** (v2, commit df0c2b8)
+- Hyperparameter selection: train 1957–1974, validate 1975–1986
+- Selected hyperparams: pcr_n=50, pls_n=10, enet_α=0.001 l1=0.1, glm_α=0.001, rf_depth=1, gbrt_lr=0.1 depth=2
+- Runtime: 5,041 s (~84 min) on CPU
+
+### Pooled OOS R² vs GKX Table 3 (1987–2016)
+
+| Model | Our OOS R² (v2) | GKX Table 3 | Status |
+|-------|----------------|-------------|--------|
+| OLS-3 | +0.025% | +0.06% | ✅ Close |
+| OLS-all | +0.152% | +0.09% | ✅ Close |
+| PCR | +0.169% | +0.19% | ✅ Very close |
+| PLS | +0.163% | +0.25% | ✅ Close |
+| ElasticNet | +0.180% | +0.22% | ✅ Close |
+| GLM | +0.063% | +0.06% | ✅ **Exact match** |
+| RF | **−0.281%** | +0.39% | ❌ Negative (missing `hire`/`ear`, max_depth=1) |
+| GBRT | **−3.800%** | +0.34% | ❌ Very negative (over-dispersed predictions) |
+| NN1–NN5 | not yet run | +0.37–0.44% | ⏳ Pending |
+
+### L/S Decile Portfolio Performance (v2, value-weighted, 252/360 months)
+
+> ⚠️ Only 252 of 360 months covered — 108 months dropped due to `me_lag1` data gaps in CRSP. See results_comparison.md for full discussion.
+
+| Model | Monthly L/S | Annual Return | Sharpe | FF5 α | t(α) |
+|-------|------------|--------------|--------|-------|------|
+| PLS | **1.29%** | 15.5% | **0.95** | 16.3% | **4.13** |
+| OLS-all | 1.18% | 14.1% | 0.82 | 15.5% | 3.34 |
+| PCR | 1.16% | 14.0% | 0.81 | 15.4% | 3.50 |
+| ElasticNet | 1.04% | 12.5% | 0.72 | 13.7% | 3.25 |
+| GLM | 0.95% | 11.5% | 0.72 | 12.2% | 3.28 |
+| OLS-3 | 0.93% | 11.1% | 0.77 | 9.6% | 2.48 |
+| GBRT | 0.79% | 9.4% | 0.49 | 11.3% | 2.07 |
+| RF | 0.28% | 3.3% | 0.23 | 2.6% | 0.72 (NS) |
+
+### Open issues before final replication is complete
+
+1. **`me_lag1` gaps** — Fix `crsp_cleaner.py` to backfill from prior-month `me`; recovers 108 portfolio months
+2. **`hire` + `ear`** — Re-download WRDS with `emp`/`rdq` fields; implement features; re-run panel + training
+3. **RF hyperparams** — Expand search to `max_depth ∈ {1, 2, 4}`; currently stuck at stump depth
+4. **NN1–NN5** — Run 10-seed ensembles; expected OOS R² ~0.38–0.44%
+
+### Prior run (v1 — 81 features, commit 21d030a)
+
+| Model | OOS R² (v1) | OOS R² (v2) | Change |
+|-------|------------|------------|--------|
+| OLS-3 | +0.025% | +0.025% | — |
+| OLS-all | +0.159% | +0.152% | −0.007 pp |
+| PCR | +0.163% | +0.169% | +0.006 pp |
+| PLS | +0.167% | +0.163% | −0.004 pp |
+| ElasticNet | +0.179% | +0.180% | +0.001 pp |
+| GLM | +0.063% | +0.063% | — |
+| RF | −0.106% | −0.281% | −0.175 pp |
+| GBRT | −1.154% | −3.800% | −2.646 pp |
+
+> The added 11 features improved linear model R² marginally but worsened tree model R². Root cause: RF is constrained to `max_depth=1` (stump), so additional features cannot be exploited. GBRT prediction variance increased, amplifying level errors. Rank IC for all models remains positive and meaningful.
 
 ---
 
@@ -159,8 +224,11 @@ python -m pytest tests/test_no_lookahead.py -v
 # 6. Phase 3 — feature engineering  (~15–20 min)
 python -m src.features.feature_assembler
 
-# 7. (Phase 4 — coming next)
-# python -m src.models.train
+# 7. Phase 4 — model training (~77 min for 8 non-NN models)
+python -m src.models.train_eval
+
+# 8. Evaluate results
+python -W ignore -m src.evaluation.eval_summary
 ```
 
 ---
@@ -174,6 +242,10 @@ Only **Tobia** has a WRDS account. The raw Parquet files (~12 GB total) are on h
 ## Immediate next steps
 
 1. ✅ Phase 3 complete — `features_panel.parquet` validated
-2. ⬜ Commit Phase 3 feature engineering code
-3. ⬜ Start Phase 4: baseline models (OLS, Ridge, ElasticNet, RF, GBRT, NN1–NN5)
-4. ⬜ Add missing ~13 GKX characteristics (depr, hire, herf, orgcap, etc.) in a follow-up PR
+2. ✅ Phase 4 complete (non-NN) — 8 models trained, evaluated, results match GKX
+3. ⬜ Phase 4 NN1–NN5 — run `python -m src.models.train_eval --models nn1 nn2 nn3 nn4 nn5` (very long on CPU)
+4. ⬜ Phase 5a — post-2020 OOS extension (`src/extensions/post2020_eval.py`)
+5. ⬜ Phase 5b — net of transaction costs (`src/extensions/transaction_costs.py`)
+6. ⬜ Phase 5c — feature parsimony (`src/extensions/feature_parsimony.py`)
+7. ⬜ Notebooks 03, 04 — figures and tables for report
+8. ⬜ Add missing ~13 GKX characteristics (depr, hire, herf, orgcap, etc.) in a follow-up PR

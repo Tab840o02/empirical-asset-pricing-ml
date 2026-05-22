@@ -22,11 +22,14 @@ dy          – Dividend yield (DV / ME)
 pchsale_pchinvt – %ΔSales - %ΔInventory
 pchsale_pchxsga – %ΔSales - %ΔSGA
 pchsale_pchgm   – %ΔSales - %ΔGross margin
+pchsale_pchrect – %ΔSales - %ΔAccounts receivable  (Abarbanell & Bushee 1998)
 pchcapx_ia      – %ΔCapex minus within-industry mean
+pchcurrat       – % change in current ratio (Ou & Penman 1989)
 cash        – Cash / total assets
 salecash    – Sales / cash
 saleinv     – Sales / inventory
 salerec     – Sales / accounts receivable
+sin         – Sin-stock indicator: 1 if tobacco, beer, or gambling SIC (Hong & Kacperczyk 2009)
 """
 
 from __future__ import annotations
@@ -230,6 +233,37 @@ def compute(panel: pd.DataFrame) -> pd.DataFrame:
     out["salerec"] = (panel["a_sale"] / panel["a_rect"].replace(0, np.nan)).replace(
         [np.inf, -np.inf], np.nan
     )
+
+    # ------------------------------------------------------------------
+    # %ΔSales - %ΔAccounts receivable  (Abarbanell & Bushee 1998)
+    # Positive = sales growing faster than receivables (earnings quality signal)
+    # ------------------------------------------------------------------
+    rect_lag = grp["a_rect"].shift(12)
+    pch_rect = _pct_chg(panel["a_rect"].fillna(0.0), rect_lag.fillna(0.0))
+    out["pchsale_pchrect"] = pch_sale - pch_rect
+
+    # ------------------------------------------------------------------
+    # % change in current ratio  (Ou & Penman 1989)
+    # ------------------------------------------------------------------
+    lct = panel["a_lct"].replace(0, np.nan)
+    curr_ratio = (panel["a_act"] / lct).replace([np.inf, -np.inf], np.nan)
+    lct_lag = grp["a_lct"].shift(12).replace(0, np.nan)
+    curr_ratio_lag = (grp["a_act"].shift(12) / lct_lag).replace([np.inf, -np.inf], np.nan)
+    out["pchcurrat"] = _pct_chg(curr_ratio, curr_ratio_lag)
+
+    # ------------------------------------------------------------------
+    # Sin-stock indicator  (Hong & Kacperczyk 2009)
+    # 1 if SIC code belongs to tobacco (2100-2199), beer/liquor (2080-2085),
+    # or gambling (7993, 7995); else 0.
+    # ------------------------------------------------------------------
+    sich = panel["a_sich"].fillna(-1).astype(int)
+    sin_mask = (
+        ((sich >= 2100) & (sich <= 2199))  # tobacco products
+        | ((sich >= 2080) & (sich <= 2085))  # beer, wine, distilled beverages
+        | (sich == 7993)                    # coin-operated amusement devices
+        | (sich == 7995)                    # betting / gambling
+    )
+    out["sin"] = sin_mask.astype("float32")
 
     log.info("Value features computed: %d rows, %d features",
              len(out), out.shape[1] - 2)

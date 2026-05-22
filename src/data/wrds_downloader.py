@@ -285,7 +285,9 @@ _FUNDA_COLS = """
     -- Convertible debt (used for convind — Valta 2012)
     dcvt,
     -- Accruals
-    xacc, recch, invch
+    xacc, recch, invch,
+    -- Employee count (for hire = Δemp/lag(emp) — Belo et al. 2014)
+    emp
 """
 
 # Compustat Quarterly columns
@@ -299,7 +301,9 @@ _FUNDQ_COLS = """
     -- Total income taxes (used for chtx — Thomas & Zhang 2011)
     txtq,
     -- For SUE (standardised unexpected earnings)
-    epspxq, epspiq
+    epspxq, epspiq,
+    -- Earnings announcement date (for ear — Kishore et al. 2008)
+    rdq
 """
 
 
