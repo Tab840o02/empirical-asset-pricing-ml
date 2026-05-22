@@ -206,7 +206,7 @@ GBRT no longer produces the extreme `0.0363` dispersion seen in v3, which valida
 3. **Tree-spec mismatch remains**: The v4 rerun removed the stump-only RF explanation and fixed the GBRT learning-rate pathology, yet both tree models remain negative. Any further tree work should be treated as a broader specification exercise, not a quick unblocker before NN training.
 
 4. **NN models not yet run**: GKX's best performers (NN4, NN5) are pending. Expected OOS R² ~0.38–0.44%, L/S Sharpe ~0.70–0.77.
-
+---
 ---
 
 ## 9. Next Steps
