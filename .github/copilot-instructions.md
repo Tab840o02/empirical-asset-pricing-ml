@@ -47,6 +47,13 @@ Cross-sectional rank normalisation to $[-1, +1]$ is performed **only** in `src/f
 ### 5. Notebooks Call `src/`, Not the Other Way Around
 All logic belongs in `src/`. Notebooks may import from `src/` but `src/` never imports from notebooks.
 
+### 6. Keep Repository Minimal and Canonical
+- Do not create version-suffixed artifacts or files (examples to avoid: `*_v2.py`, `*_v3.log`, `*_final2.*`).
+- Reuse canonical filenames and overwrite or update existing files instead of creating numbered variants.
+- Temporary logs, caches, and one-off helper scripts must stay outside tracked project structure; remove them after use.
+- Never store executable scripts under `data/processed/`; keep code under `src/`, `tests/`, or `notebooks/` only.
+- Before deleting legacy artifacts, verify they are unreferenced by `src/`, `tests/`, `docs/`, and `README.md`.
+
 ---
 
 ## Key Conventions

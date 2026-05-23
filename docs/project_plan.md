@@ -1,7 +1,7 @@
 # Project Plan — Empirical Asset Pricing via Machine Learning
 ### Replication of Gu, Kelly & Xiu (2020) + Three Custom Extensions
 
-> **Last updated:** 2026-05-18  
+> **Last updated:** 2026-05-23  
 > **Data source:** WRDS (all team members have accounts)  
 > **ML framework:** Python · TensorFlow/Keras · scikit-learn · LightGBM  
 > **Test window extended to:** most recent available WRDS month (~2026)
@@ -179,7 +179,12 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 | GLM (group LASSO) | `linear_models.py` | Group penalty λ via validation |
 | Random Forest | `tree_models.py` | max_depth ∈ {2, 3, 4}, n_estimators ≥ 300, min_samples_leaf = 1000; selected: max_depth=2 |
 | GBRT | `tree_models.py` | learning_rate = 0.01 (fixed), max_depth ∈ {1, 2}, subsample = 0.5; selected: lr=0.01, depth=2 |
-| NN1–NN5 | `neural_nets.py` | hidden units per layer = 32, dropout = 0.30, L1 penalty, Adam lr = 0.001, **ensemble of 10 seeds** |
+| NN1–NN5 | `neural_nets.py` | hidden units per layer = 32, dropout = 0.50, L1 penalty, Adam lr = 0.001, **ensemble of 10 seeds** |
+
+### Current execution status (2026-05-23)
+- Non-NN models complete and evaluated on 1987–2016.
+- NN1 complete and evaluated (close to GKX NN1 OOS R² benchmark).
+- NN2–NN5 queued for sequential training.
 
 ### Training Loop (`src/models/train_eval.py`)
 - Iterate month-by-month from 1987-01 to the end of the test window.
