@@ -1,9 +1,9 @@
 {
-  "run_timestamp": "2026-05-22T20:21:15.213705+00:00",
+  "run_timestamp": "2026-05-23T16:25:26.094731+00:00",
   "test_start": "1987-01-01",
   "test_end": "2016-12-31",
   "models": [
-    "nn1"
+    "nn2"
   ],
   "hp_linear": {},
   "hp_tree": {},
@@ -12,153 +12,153 @@
     "1987": {
       "n_train": 717935,
       "n_test": 48803,
-      "elapsed_s": 509.9
+      "elapsed_s": 544.8
     },
     "1988": {
       "n_train": 766738,
       "n_test": 48065,
-      "elapsed_s": 587.6
+      "elapsed_s": 605.3
     },
     "1989": {
       "n_train": 814803,
       "n_test": 46322,
-      "elapsed_s": 466.2
+      "elapsed_s": 594.8
     },
     "1990": {
       "n_train": 861125,
       "n_test": 45430,
-      "elapsed_s": 451.1
+      "elapsed_s": 634.2
     },
     "1991": {
       "n_train": 906555,
       "n_test": 44922,
-      "elapsed_s": 504.5
+      "elapsed_s": 620.5
     },
     "1992": {
       "n_train": 951477,
       "n_test": 46431,
-      "elapsed_s": 466.9
+      "elapsed_s": 669.6
     },
     "1993": {
       "n_train": 997908,
       "n_test": 49796,
-      "elapsed_s": 473.6
+      "elapsed_s": 765.6
     },
     "1994": {
       "n_train": 1047704,
       "n_test": 54705,
-      "elapsed_s": 560.1
+      "elapsed_s": 895.0
     },
     "1995": {
       "n_train": 1102409,
       "n_test": 56473,
-      "elapsed_s": 550.6
+      "elapsed_s": 828.7
     },
     "1996": {
       "n_train": 1158882,
       "n_test": 60185,
-      "elapsed_s": 535.5
+      "elapsed_s": 753.7
     },
     "1997": {
       "n_train": 1219067,
       "n_test": 62433,
-      "elapsed_s": 509.9
+      "elapsed_s": 735.7
     },
     "1998": {
       "n_train": 1281500,
       "n_test": 61827,
-      "elapsed_s": 557.9
+      "elapsed_s": 950.1
     },
     "1999": {
       "n_train": 1343327,
       "n_test": 58908,
-      "elapsed_s": 562.1
+      "elapsed_s": 1011.4
     },
     "2000": {
       "n_train": 1402235,
       "n_test": 57232,
-      "elapsed_s": 636.4
+      "elapsed_s": 1185.7
     },
     "2001": {
       "n_train": 1459467,
       "n_test": 52629,
-      "elapsed_s": 621.9
+      "elapsed_s": 1073.1
     },
     "2002": {
       "n_train": 1512096,
       "n_test": 48451,
-      "elapsed_s": 549.0
+      "elapsed_s": 1056.9
     },
     "2003": {
       "n_train": 1560547,
       "n_test": 45637,
-      "elapsed_s": 700.3
+      "elapsed_s": 1147.0
     },
     "2004": {
       "n_train": 1606184,
       "n_test": 44501,
-      "elapsed_s": 576.3
+      "elapsed_s": 956.1
     },
     "2005": {
       "n_train": 1650685,
       "n_test": 44120,
-      "elapsed_s": 580.2
+      "elapsed_s": 1037.8
     },
     "2006": {
       "n_train": 1694805,
       "n_test": 43760,
-      "elapsed_s": 738.2
+      "elapsed_s": 1305.3
     },
     "2007": {
       "n_train": 1738565,
       "n_test": 42950,
-      "elapsed_s": 549.2
+      "elapsed_s": 1214.0
     },
     "2008": {
       "n_train": 1781515,
       "n_test": 41474,
-      "elapsed_s": 532.4
+      "elapsed_s": 1259.8
     },
     "2009": {
       "n_train": 1822989,
       "n_test": 38823,
-      "elapsed_s": 537.6
+      "elapsed_s": 1254.4
     },
     "2010": {
       "n_train": 1861812,
       "n_test": 37537,
-      "elapsed_s": 681.2
+      "elapsed_s": 1391.2
     },
     "2011": {
       "n_train": 1899349,
       "n_test": 36257,
-      "elapsed_s": 590.0
+      "elapsed_s": 1336.2
     },
     "2012": {
       "n_train": 1935606,
       "n_test": 35364,
-      "elapsed_s": 573.7
+      "elapsed_s": 1310.8
     },
     "2013": {
       "n_train": 1970970,
       "n_test": 35091,
-      "elapsed_s": 564.5
+      "elapsed_s": 1359.9
     },
     "2014": {
       "n_train": 2006061,
       "n_test": 36174,
-      "elapsed_s": 1257.4
+      "elapsed_s": 1708.3
     },
     "2015": {
       "n_train": 2042235,
       "n_test": 36800,
-      "elapsed_s": 845.0
+      "elapsed_s": 1550.8
     },
     "2016": {
       "n_train": 2079035,
       "n_test": 36222,
-      "elapsed_s": 828.2
+      "elapsed_s": 1414.3
     }
   },
-  "total_elapsed_s": 18104.2
+  "total_elapsed_s": 31191.0
 }

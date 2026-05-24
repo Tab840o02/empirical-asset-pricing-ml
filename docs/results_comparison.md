@@ -1,12 +1,12 @@
 # GKX (2020) Replication — Results vs Paper Comparison
 
-> **Run date:** 2026-05-23  
+> **Run date:** 2026-05-24  
 > **Features:** **94/94** GKX characteristics (all implemented)  
 > **Test window:** 1987-01 → 2016-12 (360 months, matching GKX exactly)  
 > **Training scheme:** Expanding window, hyperparams selected on 1957–1974 train / 1975–1986 val  
-> **Models trained:** OLS-3, OLS-all, PCR, PLS, ElasticNet, GLM, RF, GBRT, NN1  
-> **Total predictions:** 12,575,898 stock-month observations  
-> **Runtime:** ~84 min full non-NN run + NN1 full expanding-window run  
+> **Models trained:** OLS-3, OLS-all, PCR, PLS, ElasticNet, GLM, RF, GBRT, NN1, NN2  
+> **Total predictions:** 13,973,220 stock-month observations  
+> **Runtime:** ~84 min full non-NN run + NN1 and NN2 full expanding-window runs  
 
 ---
 
@@ -18,7 +18,7 @@
 | GBRT implementation | Not specified (likely sklearn GBRT) | LightGBM `LGBMRegressor` |
 | Portfolio weighting | Value-weighted (lagged market cap) | Value-weighted (lagged `me_lag1`) |
 | Portfolio months covered | 360 (1987–2016) | **360** — date-normalization fix applied to `portfolio.py` |
-| NN models | NN1–NN5 (ensemble of 10 seeds each) | NN1 complete and evaluated; NN2–NN5 pending |
+| NN models | NN1–NN5 (ensemble of 10 seeds each) | NN1 and NN2 complete and evaluated; NN3–NN5 pending |
 
 ---
 
@@ -39,13 +39,16 @@ $$R^2_{\text{OOS}} = 1 - \frac{\sum_t (r_{i,t} - \hat{r}_{i,t})^2}{\sum_t (r_{i,
 | RF | −0.509% | +0.39% | −0.899 pp | ❌ Negative |
 | GBRT | −0.989% | +0.34% | −1.329 pp | ⚠️ Improved, still negative |
 | NN1 | +0.344% | +0.39% | −0.046 pp | ✅ Close |
-| NN2–NN5 | *not run* | +0.40–0.55% | — | ⏳ Pending |
+| NN2 | +0.178% | +0.40% | −0.222 pp | ⚠️ Positive, below GKX and below NN1 |
+| NN3–NN5 | *not run* | +0.41–0.55% | — | ⏳ Pending |
 
 **Key observations:**
 - All **linear models** match GKX within ±0.09 pp. **GLM** reproduces the paper's +0.06% exactly.
 - **RF** remains negative at `max_depth=2`; the stump-only explanation was not the main bottleneck.
 - **GBRT** improved from −3.80% to −0.99% after restricting to `lr=0.01`, reducing prediction dispersion from 0.0363 to 0.0158. Still negative vs GKX's +0.34%.
-- **NN1** is now positive and close to paper at +0.344% vs GKX +0.39%; **NN2–NN5** remain pending.
+- **NN1** remains the strongest neural model so far at +0.344% vs GKX +0.39%.
+- **NN2** is positive (+0.178%) but underperforms both GKX NN2 (+0.40%) and our NN1, so added depth did not improve OOS R² in this run.
+- **NN3–NN5** remain pending.
 
 ---
 
@@ -65,10 +68,11 @@ GKX reports rank IC in Figure 1 of the paper (not Table 3); approximate paper va
 | ElasticNet | 0.0537 | 0.0611 | 0.8783 | 0.04–0.05 |
 | GLM (Lasso) | 0.0601 | 0.0765 | 0.7857 | 0.03–0.05 |
 | NN1 | 0.0492 | 0.0713 | 0.6896 | 0.04–0.06 |
+| NN2 | 0.0488 | 0.0806 | 0.6052 | 0.04–0.06 |
 | RF | 0.0213 | 0.0728 | 0.2922 | 0.03–0.05 |
 | GBRT | 0.0300 | 0.0662 | 0.4535 | 0.04–0.06 |
 
-**Key observation:** All models still have **positive rank IC**. NN1 rank quality is in the expected GKX range, while both tree models remain weaker.
+**Key observation:** All models still have **positive rank IC**. NN2 rank quality remains in the expected GKX range, but it is slightly weaker than NN1 on ICIR.
 
 ---
 
@@ -88,6 +92,7 @@ Long P10 − Short P1, value-weighted using lagged market cap. FF5 alpha from Ne
 | OLS-3 | 0.86% | 10.3% | 0.70 | 9.27% | 3.35 | <0.001 |
 | GLM (Lasso) | 0.75% | 9.0% | 0.56 | 9.04% | 3.57 | <0.001 |
 | NN1 | **2.50%** | **30.0%** | **1.60** | **28.30%** | **6.21** | <0.001 |
+| NN2 | 2.44% | 29.3% | 1.51 | 27.99% | 5.92 | <0.001 |
 | RF | 0.13% | 1.6% | 0.10 | 2.27% | 0.61 | 0.541 |
 | GBRT | 0.06% | 0.8% | 0.04 | 1.10% | 0.30 | 0.764 |
 
@@ -124,6 +129,7 @@ Values from GKX (2020) Table 3. Portfolio is long-short, value-weighted, 1987–
 | ElasticNet | 0.99% | ~0.26% | 3.8× | 0.72 | ~0.37 | ❌ Higher |
 | GLM | 0.75% | ~0.17% | 4.4× | 0.56 | ~0.23 | ⚠️ Higher |
 | NN1 | 2.50% | ~0.39% | 6.4× | 1.60 | ~0.55 | ❌ Much higher |
+| NN2 | 2.44% | ~0.40% | 6.1× | 1.51 | ~0.60 | ❌ Much higher |
 | RF | 0.13% | ~0.39% | 0.3× | 0.10 | ~0.49 | ❌ Lower |
 | GBRT | 0.06% | ~0.34% | 0.2× | 0.04 | ~0.42 | ❌ Much lower |
 
@@ -147,7 +153,7 @@ Values from GKX (2020) Table 3. Portfolio is long-short, value-weighted, 1987–
 |---|---|---|---|
 | Linear (OLS, PCR, PLS, ENet, GLM) | +0.06% to +0.25% | +0.025% to +0.180% | Small (≤0.09 pp) |
 | Tree (RF, GBRT) | +0.34% to +0.39% | −0.99% to −0.51% | **Still large (>0.8 pp)** |
-| Neural (NN1–NN5) | +0.37% to +0.44% | NN1: +0.344% (NN2–NN5 pending) | Small for NN1 |
+| Neural (NN1–NN5) | +0.37% to +0.44% | NN1: +0.344%, NN2: +0.178% (NN3–NN5 pending) | Mixed |
 
 ---
 
@@ -162,6 +168,7 @@ Extreme dispersion in tree predictions inflates MSE without improving rank corre
 | OLS-all | 0.0103 |
 | ElasticNet | 0.0096 |
 | NN1 | 0.0092 |
+| NN2 | 0.0050 |
 | PCR | 0.0100 |
 | PLS | 0.0113 |
 | RF | 0.0112 |
@@ -195,10 +202,12 @@ GBRT no longer shows the earlier extreme high-dispersion behavior, which validat
 | Linear models OOS R² | ✅ **Replicated** — within ±0.09 pp of GKX |
 | GLM OOS R² | ✅ **Exact match** (+0.06% vs +0.06%) |
 | Tree models OOS R² | ❌ **Still not replicated** — GBRT improved, both remain negative |
-| Tree model L/S Sharpe (GBRT) | ❌ **Now weak** — Sharpe 0.11 vs GKX ~0.42 |
-| RF L/S | ❌ **Still underperforms** — Sharpe 0.34 vs GKX ~0.49 |
+| Tree model L/S Sharpe (GBRT) | ❌ **Now weak** — Sharpe 0.04 vs GKX ~0.42 |
+| RF L/S | ❌ **Still underperforms** — Sharpe 0.10 vs GKX ~0.49 |
 | NN1 OOS R² | ✅ **Close to paper** — +0.344% vs +0.39% |
+| NN2 OOS R² | ⚠️ **Positive but below expectation** — +0.178% vs GKX +0.40% and below NN1 |
 | NN1 signal dispersion | ✅ **Structurally healthy** — std 0.0092, no tree-style extrapolation failure |
+| NN2 signal dispersion | ⚠️ **Compressed** — std 0.0050, potentially linked to weaker OOS R² vs NN1 |
 | Linear model L/S | ⚠️ **Still inflated vs paper** — but closer after date-normalization fix (360 months now covered) |
 | Pipeline readiness for NNs | ✅ **Validated** — append/overwrite path, feature panel, train/eval, and portfolio pipeline all verified before overnight NN run |
 
@@ -212,7 +221,7 @@ GBRT no longer shows the earlier extreme high-dispersion behavior, which validat
 
 3. **Tree-spec mismatch remains**: The latest tree rerun removed the stump-only RF explanation and fixed the GBRT learning-rate pathology, yet both tree models remain negative. Any further tree work should be treated as a broader specification exercise, not a quick unblocker before NN training.
 
-4. **Neural queue partially complete**: NN1 is complete and evaluated; NN2–NN5 remain pending. The next checkpoint is whether deeper architectures move OOS R² toward or above the NN1 benchmark.
+4. **Neural queue partially complete**: NN1 and NN2 are complete and evaluated; NN3–NN5 remain pending. So far, added depth (NN2) has not improved OOS R² relative to NN1.
 ---
 
 ## 9. Next Steps
@@ -221,7 +230,8 @@ GBRT no longer shows the earlier extreme high-dispersion behavior, which validat
 - [x] ~~Fix `me_lag1` gaps in `crsp_cleaner.py`~~ Done (backfill applied; not the root cause)
 - [x] ~~Fix missing 108 portfolio months~~ Done — date-normalization fix in `portfolio.py`; coverage now **360/360**
 - [x] Train NN1 (10 seeds) and evaluate
-- [ ] Train NN2–NN5 (10 seeds each, CPU) → complete Phase 4
+- [x] Train NN2 (10 seeds) and evaluate
+- [ ] Train NN3–NN5 (10 seeds each, CPU/cloud) → complete Phase 4
 - [ ] Revisit tree-model specification (optional — not a blocker for NNs)
 - [ ] Phase 5a: Post-2020 OOS extension (`src/extensions/post2020_eval.py`)
 - [ ] Phase 5b: Net of transaction costs (`src/extensions/transaction_costs.py`)

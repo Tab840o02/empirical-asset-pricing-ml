@@ -181,10 +181,11 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 | GBRT | `tree_models.py` | learning_rate = 0.01 (fixed), max_depth ∈ {1, 2}, subsample = 0.5; selected: lr=0.01, depth=2 |
 | NN1–NN5 | `neural_nets.py` | hidden units per layer = 32, dropout = 0.50, L1 penalty, Adam lr = 0.001, **ensemble of 10 seeds** |
 
-### Current execution status (2026-05-23)
+### Current execution status (2026-05-24)
 - Non-NN models complete and evaluated on 1987–2016.
 - NN1 complete and evaluated (close to GKX NN1 OOS R² benchmark).
-- NN2–NN5 queued for sequential training.
+- NN2 complete and evaluated (positive OOS R², but below NN1 and below GKX NN2 benchmark).
+- NN3–NN5 queued for cloud training.
 
 ### Training Loop (`src/models/train_eval.py`)
 - Iterate month-by-month from 1987-01 to the end of the test window.
