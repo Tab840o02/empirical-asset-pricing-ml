@@ -6,7 +6,81 @@
 > **Training scheme:** Expanding window, hyperparams selected on 1957–1974 train / 1975–1986 val  
 > **Models trained:** OLS-3, OLS-all, PCR, PLS, ElasticNet, GLM, RF, GBRT, NN1, NN2, NN3, NN4  
 > **Total predictions:** 16,767,864 stock-month observations  
-> **Runtime:** ~84 min full non-NN run + NN1/NN2 full expanding-window runs + NN3 (Kaggle, 23,331.6s) + NN4 (local, 20,003s)  
+> **Runtime:** ~84 min full non-NN run + NN1/NN2 full expanding-window runs + NN3 (Kaggle, 23,331.6s) + NN4 (local, 20,003s)
+>
+> ⚠️ **Replication status: PARTIAL.** This document reports a partial replication with several unresolved comparability gaps. See Section 0 for the full methodological deviation register before interpreting any results.
+
+---
+
+## 0. Methodological Deviations and Limitations
+
+> **This section must be read before interpreting any quantitative comparison in this document.** The replication is partial. Several deviations from GKX (2020) are known, quantified where possible, and disclosed below. Claims previously stated as "✅ Replicated" have been restated as approximate matches subject to the caveats enumerated here.
+
+### 0.1 Neural Network Ensemble Protocol Break (P0 — Cross-Model Comparisons Unreliable)
+
+GKX (2020) trains each neural network model (NN1–NN5) as an ensemble of **10 independently seeded runs**, and reports the average prediction across all 10 seeds as the model output. This is explicitly stated in the paper as a variance-reduction measure; single-seed NN runs are not considered valid model evaluations under the GKX protocol.
+
+**This replication used a mixed protocol:**
+
+| Model | Seeds Used | GKX Protocol | Status |
+|---|---|---|---|
+| NN1 | 10 (seeds 0–9) | 10 | ✅ Compliant |
+| NN2 | 10 (seeds 0–9) | 10 | ✅ Compliant |
+| NN3 | 3 (seeds 0–2) | 10 | ❌ Deadline mode — 7 seeds missing |
+| NN4 | 3 (seeds 0–2) | 10 | ❌ Deadline mode — 7 seeds missing |
+| NN5 | Not run | 10 | ❌ Excluded from analysis |
+
+**Inferential consequence:** A 3-seed ensemble has substantially higher variance than a 10-seed ensemble. The reported OOS R² for NN3 (+0.023%) and NN4 (+0.003%) cannot be compared on equal footing against GKX's 10-seed results or against our own NN1/NN2 results. Any conclusion that "deeper networks underperform shallower networks in this dataset" is not supported at the current seed count — the observed deterioration could partially reflect seed-variance rather than a genuine architectural effect. **No cross-model ranking involving NN3 or NN4 should be treated as conclusive.**
+
+### 0.2 Tree Model Failure — Open Divergence (P1 — Result Unreliable)
+
+Both tree-based models produce **negative pooled OOS R²**, in sharp contrast to GKX Table 3:
+
+| Model | Our OOS R² | GKX OOS R² | Gap |
+|---|---|---|---|
+| RF | −0.509% | +0.39% | −0.899 pp |
+| GBRT | −0.989% | +0.34% | −1.329 pp |
+
+Root cause is **unresolved**. Investigated and ruled out: stump-only RF depth, GBRT learning-rate pathology (fixed from −3.80% to −0.989%), missing features (all 94 implemented). Neither tree model was retrained with alternative specifications before this deadline. This is treated as an **open divergence requiring future research**, not a concluded finding. Portfolio results for RF and GBRT (Sharpe 0.10 and 0.04 respectively) are reported for completeness but should not be used for cross-model inference.
+
+### 0.3 CRSP–Compustat Linkage: Custom Implementation vs. Canonical CCM (P1 — Universe Composition Unverified)
+
+GKX use the WRDS CCM (Center for Research in Security Prices–Compustat Merged) link table (`comp.ccmxpf_lnkhist`) as the canonical PERMNO–GVKEY bridge. This replication uses a **custom CUSIP-primary / Jaccard name-similarity fallback** linker (`src/data/crsp_compustat_linker.py`).
+
+The delta between the custom linker and canonical CCM has **not been quantified**. Universe composition (number of firms per month, coverage by size decile) may differ from GKX. This affects all models equally but introduces a systematic comparability gap that is not eliminated by matching OOS R² values closely.
+
+### 0.4 Annual Compustat Attachment Window: Missing Upper Cap (P2 — Stale Filing Risk)
+
+`project_plan.md` specifies that annual Compustat data should be attached to the CRSP panel only when `public_date ≤ crsp_month ≤ public_date + 12 months`, enforcing a 12-month upper cap to prevent very stale filings from propagating forward. The implementation in `src/data/ccm_merger.py` uses `merge_asof` with `direction="backward"` but **does not enforce the 12-month upper cap**. A fiscal-year filing from, say, June 1992 could in principle be attached to a CRSP observation in December 1998 if no newer filing is available. The practical impact is expected to be small (most firms file annually) but has not been measured.
+
+### 0.5 Quarterly Fallback Logic: Planned vs. Implemented (P2 — Feature Imputation Divergence)
+
+**Planned behavior** (`project_plan.md §Phase 2`): When a quarterly Compustat value is missing, fall back to the most recent annual filing value for that variable.
+
+**Implemented behavior**: Quarterly columns are left as `NaN` in `merged_panel.parquet`. `src/features/feature_assembler.py` zero-imputes all `NaN` values after cross-sectional rank normalization. Post-normalization zero-imputation is equivalent to assigning the cross-sectional median rank — not the annual filing value. For firms with systematically missing quarterly data, this may introduce a systematic attenuation bias in quarterly-based features (e.g., `roaq`, `stdacc`, `rsup`).
+
+### 0.6 Portfolio Date Normalization Bug — Fixed (P0 — Previously Affected All Results)
+
+A date-format mismatch between CRSP trading dates (raw business-day end, e.g., `1987-05-29`) and prediction dates (calendar month-end, `1987-05-31`) caused the portfolio merge to silently drop **108 of 360 months** (30% of the test window). This affected all previously reported L/S returns and Sharpe ratios. **Fixed** in `src/evaluation/portfolio.py` via `pd.offsets.MonthEnd(0)` normalization. All portfolio results in this document reflect the corrected 360-month window. Prior versions of this document should be disregarded for portfolio metrics.
+
+### 0.7 Linear Model L/S Returns: Persistent Upward Divergence (P2 — Magnitude Unexplained)
+
+After the portfolio date-fix, linear model L/S monthly returns remain **2.7–4.4× the GKX Table 3 benchmark** (e.g., PCR: 1.10% vs ~0.25%/month). This is not consistent with a small normalization difference. Probable causes include differences in universe construction (see §0.3), value-weighting methodology, or decile boundary definitions, none of which have been isolated. These results are reported without the claim that they match GKX.
+
+### 0.8 NN1/NN2 L/S Returns: Large Upward Divergence (P1 — Structural Concern)
+
+NN1 and NN2 produce L/S monthly returns of 2.50% and 2.44% respectively, versus GKX's ~0.39–0.40%/month — approximately 6× the paper's values. OOS R² for these models is close to GKX (+0.344% and +0.178% vs +0.39% and +0.40%), which makes the portfolio magnitude divergence difficult to explain through prediction quality alone. This divergence is flagged as an unresolved structural concern.
+
+### 0.9 Claim Restatement Summary
+
+| Prior claim | Restated claim |
+|---|---|
+| "✅ Replicated — within ±0.09 pp of GKX" (linear OOS R²) | Approximate match on OOS R² metric only; portfolio magnitudes diverge substantially (see §0.7) |
+| "✅ Exact match" (GLM OOS R²) | OOS R² point estimate matches; portfolio performance does not |
+| "✅ Close to paper" (NN1 OOS R²) | OOS R² close (+0.344% vs +0.39%); portfolio return 6× GKX; 10-seed protocol compliant |
+| "⚠️ Positive but below expectation" (NN2) | 10-seed compliant; OOS R² below GKX and below NN1; portfolio magnitude unexplained |
+| "⚠️ Completed with reduced-rigor setup" (NN3/NN4) | 3-seed non-compliant ensembles; results not comparable to GKX or to NN1/NN2; reported for transparency only |
+| "❌ Still not replicated" (tree models) | Open divergence; root cause unresolved; excluded from cross-model ranking conclusions |
 
 ---
 
@@ -215,21 +289,21 @@ GBRT no longer shows the earlier extreme high-dispersion behavior, which validat
 
 ## 8. Summary Assessment
 
+> All claims have been restated per §0.9. See Section 0 for full deviation register.
+
 | Category | Assessment |
 |---|---|
-| Linear models OOS R² | ✅ **Replicated** — within ±0.09 pp of GKX |
-| GLM OOS R² | ✅ **Exact match** (+0.06% vs +0.06%) |
-| Tree models OOS R² | ❌ **Still not replicated** — GBRT improved, both remain negative |
-| Tree model L/S Sharpe (GBRT) | ❌ **Now weak** — Sharpe 0.04 vs GKX ~0.42 |
-| RF L/S | ❌ **Still underperforms** — Sharpe 0.10 vs GKX ~0.49 |
-| NN1 OOS R² | ✅ **Close to paper** — +0.344% vs +0.39% |
-| NN2 OOS R² | ⚠️ **Positive but below expectation** — +0.178% vs GKX +0.40% and below NN1 |
-| NN3/NN4 deadline-mode runs | ⚠️ **Completed with reduced-rigor setup** — both were run with 3 seeds rather than the paper's 10-seed ensemble |
-| NN5 protocol | ⚠️ **Pending under reduced-rigor path** — NN5 still to be run with 3 seeds |
-| NN1 signal dispersion | ✅ **Structurally healthy** — std 0.0092, no tree-style extrapolation failure |
-| NN2 signal dispersion | ⚠️ **Compressed** — std 0.0050, potentially linked to weaker OOS R² vs NN1 |
-| Linear model L/S | ⚠️ **Still inflated vs paper** — but closer after date-normalization fix (360 months now covered) |
-| Pipeline readiness for NNs | ✅ **Validated** — append/overwrite path, feature panel, train/eval, and portfolio pipeline all verified before overnight NN run |
+| Linear models OOS R² | ⚠️ **Approximate match** — within ±0.09 pp of GKX; portfolio magnitudes diverge 2.7–4.4× (see §0.7); not a full replication |
+| GLM OOS R² | ⚠️ **OOS R² point estimate matches** (+0.06% vs +0.06%); portfolio performance does not; partial match only |
+| Tree models OOS R² | ❌ **Open divergence** — both RF and GBRT negative; root cause unresolved; excluded from cross-model ranking |
+| Tree model L/S Sharpe | ❌ **Not interpretable** — Sharpe 0.04–0.10 vs GKX ~0.42–0.49; excluded from conclusions pending resolution |
+| NN1 OOS R² | ⚠️ **Close partial match** — +0.344% vs +0.39%; 10-seed compliant; portfolio 6× GKX (§0.8) |
+| NN2 OOS R² | ⚠️ **Positive, non-compliant match** — +0.178% vs GKX +0.40%; 10-seed compliant; magnitude below GKX |
+| NN3/NN4 | ❌ **Non-compliant ensembles** — 3 seeds vs GKX 10; results reported for transparency only; not comparable to GKX or to NN1/NN2 |
+| NN5 | ❌ **Not run** — excluded from all analysis |
+| Portfolio coverage | ✅ **Fixed** — 360/360 months after date-normalization fix in `portfolio.py` (§0.6) |
+| Linear model L/S | ❌ **Unexplained upward divergence** — 2.7–4.4× GKX after fix; cause not isolated |
+| NN1/NN2 L/S | ❌ **Large unexplained divergence** — ~6× GKX monthly return despite close OOS R² |
 
 ### Root causes of remaining gaps
 

@@ -110,6 +110,27 @@ All raw files are in `data/raw/` (gitignored).
 
 Look-ahead bias: **11/11 tests pass** — no forward contamination confirmed.
 
+### Known implementation deviations (Phase 2)
+
+#### Quarterly fallback logic (§0.5 in results_comparison.md)
+
+**Planned** (`docs/project_plan.md §Phase 2`):
+> When a quarterly Compustat item is missing for a given month, fall back to the most-recently filed annual value for the same firm.
+
+**Implemented:**
+- `ccm_merger.py` left-joins the quarterly clean table onto the monthly panel.  Months with no matching quarterly row receive `NaN` for all `q_*` columns.
+- `feature_assembler.py` applies cross-sectional rank normalisation, then calls `fillna(0.0)` — i.e., NaN is imputed to the **cross-sectional median rank (0)**, not to the corresponding annual filing value.
+
+**Affected characteristics (quarterly-sourced):** `roaq`, `roeq`, `rdmq`, `sue`, `rs`, `stdcf`, `rsup`
+
+**Consequence:** Firms without available quarterly data receive the median rank for those seven characteristics instead of a value anchored to their annual filing.  This introduces a mild attenuation bias for stocks with sparse Compustat quarterly coverage (primarily micro-caps and firms before ~1975).  The effect on test-window (1987–2016) results is expected to be small because quarterly coverage is near-complete for exchange-listed stocks by that period.
+
+#### Annual Compustat attachment window (§0.4 in results_comparison.md)
+
+**Planned:** A 12-month upper cap on annual Compustat rows — an annual filing for fiscal year ending in month M should not remain attached beyond M+18 (i.e., the next annual filing + 6-month disclosure lag).
+
+**Implemented:** `ccm_merger.py` uses `public_date` as the lower bound for attachment but applies no upper cap.  Firms with missing subsequent filings may retain stale Compustat data indefinitely.
+
 ---
 
 ## Phase 3 — Feature Engineering
