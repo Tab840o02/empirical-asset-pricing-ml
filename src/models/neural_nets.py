@@ -23,24 +23,24 @@ before returning (GKX §3 — "ensemble of 10 initialisations").
 
 from __future__ import annotations
 
+import gc
 import logging
 import random
 
 import numpy as np
 
+from src.config import NN_PARAMS, NN_SEEDS
+
 log = logging.getLogger(__name__)
 
-# Ensemble seeds (0–9) — must never be changed after training begins
-NN_SEEDS: list[int] = list(range(10))
-
 # Shared architecture defaults
-_UNITS = 32
-_DROPOUT = 0.50   # GKX internet appendix Table I: dropout rate = 0.50
-_L1 = 1e-5
-_LR = 1e-3
-_BATCH = 10_000
-_MAX_EPOCHS = 100
-_PATIENCE = 5
+_UNITS = NN_PARAMS["hidden_units"]
+_DROPOUT = NN_PARAMS["dropout_rate"]
+_L1 = NN_PARAMS["l1_penalty"]
+_LR = NN_PARAMS["learning_rate"]
+_BATCH = NN_PARAMS["batch_size"]
+_MAX_EPOCHS = NN_PARAMS["max_epochs"]
+_PATIENCE = NN_PARAMS["early_stopping_patience"]
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +141,15 @@ class NNEnsemble:
             axis=1,
         )
         return preds.mean(axis=1)
+
+    def release_resources(self) -> None:
+        self._models.clear()
+        try:
+            import tensorflow as tf
+            tf.keras.backend.clear_session()
+        except Exception:
+            pass
+        gc.collect()
 
 
 # ---------------------------------------------------------------------------

@@ -70,7 +70,7 @@ Cell D:
 !python scripts/kaggle/kaggle_nn_runner.py --models nn3 nn4 nn5 --test-start 1987-01-01 --test-end 2016-12-31
 ```
 
-This runs each model with `--append` and creates checkpoint files after every model in:
+This runs each model with `--append --resume`, writes `predictions.parquet` and `run_manifest.json` after every completed test year, and creates checkpoint files after every model in:
 - `data/processed/checkpoints/`
 
 ## 5) Persist outputs before session ends
@@ -95,5 +95,5 @@ Then run your local evaluation scripts.
   - run `nn3`, download outputs
   - run `nn4`, download outputs
   - run `nn5`, download outputs
-- Keep `--append` on to avoid losing already-completed model predictions.
+- Keep `--append --resume` on to avoid losing already-completed model predictions or years from an interrupted run.
 - If quota is exhausted, finalize report with NN1-NN3 and state scope constraint explicitly.

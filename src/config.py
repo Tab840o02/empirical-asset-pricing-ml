@@ -109,7 +109,9 @@ ILLIQ_WINDOW_DAYS: int = 252
 # Model hyperparameter defaults (Phase 4)
 # ---------------------------------------------------------------------------
 
-NN_SEEDS: list[int] = list(range(10))  # 10 ensemble seeds (0–9), averaged before eval
+# Deadline-mode default for remaining deep models. NN1 and NN2 were already
+# trained and saved under the original 10-seed setup before this change.
+NN_SEEDS: list[int] = [0, 1, 2]
 
 NN_PARAMS: dict = {
     "hidden_units": 32,
@@ -168,7 +170,7 @@ HYPERPARAMS: dict = {
     "enet": {"alpha": [0.001, 0.01, 0.1], "l1_ratio": [0.1, 0.5, 0.9]},
     "rf":   {"max_depth": [1, 2, 4], "n_estimators": 300, "min_samples_leaf": 1000},
     "gbrt": {"learning_rate": [0.01, 0.1], "max_depth": [1, 2], "subsample": 0.5},
-    "nn":   {"hidden_units": 32, "dropout": 0.50, "lr": 1e-3, "n_seeds": 10},  # GKX IA Table I
+    "nn":   {"hidden_units": 32, "dropout": 0.50, "lr": 1e-3, "n_seeds": len(NN_SEEDS)},
 }
 
 

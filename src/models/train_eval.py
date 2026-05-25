@@ -37,6 +37,7 @@ Activate the venv and set WRDS_USER (not needed here, but consistent):
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import logging
 import time
@@ -79,6 +80,8 @@ DEFAULT_MODELS: list[str] = [
     "rf", "gbrt",
 ]
 
+PREDICTION_COLUMNS: list[str] = ["permno", "date", "model", "pred_ret"]
+
 
 # ---------------------------------------------------------------------------
 # Feature columns
@@ -86,6 +89,81 @@ DEFAULT_MODELS: list[str] = [
 
 def get_feature_cols(panel: pd.DataFrame) -> list[str]:
     return [c for c in panel.columns if c not in ("permno", "date", "ret_exc")]
+
+
+def empty_predictions() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "permno": pd.Series(dtype="int64"),
+            "date": pd.Series(dtype="datetime64[ns]"),
+            "model": pd.Series(dtype="object"),
+            "pred_ret": pd.Series(dtype="float32"),
+        }
+    )[PREDICTION_COLUMNS]
+
+
+def get_completed_years(
+    existing: pd.DataFrame,
+    panel: pd.DataFrame,
+    models_to_run: list[str],
+    ts_start: pd.Timestamp,
+    ts_end: pd.Timestamp,
+) -> set[int]:
+    if existing.empty:
+        return set()
+
+    expected_counts = (
+        panel.loc[
+            (panel["date"] >= ts_start) & (panel["date"] <= ts_end),
+            ["date"],
+        ]
+        .assign(year=lambda df: df["date"].dt.year)
+        .groupby("year")
+        .size()
+    )
+    if expected_counts.empty:
+        return set()
+
+    scoped = existing.loc[
+        existing["model"].isin(models_to_run)
+        & (existing["date"] >= ts_start)
+        & (existing["date"] <= ts_end)
+    ].copy()
+    if scoped.empty:
+        return set()
+
+    scoped["year"] = scoped["date"].dt.year
+    actual_counts = scoped.groupby(["year", "model"]).size().unstack(fill_value=0)
+
+    completed_years: set[int] = set()
+    for year, expected in expected_counts.items():
+        if year not in actual_counts.index:
+            continue
+        year_counts = actual_counts.loc[year].reindex(models_to_run, fill_value=0)
+        if bool((year_counts == expected).all()):
+            completed_years.add(int(year))
+
+    return completed_years
+
+
+def persist_progress(
+    predictions: pd.DataFrame,
+    manifest: dict,
+    output_path: Path,
+    manifest_path: Path,
+    t0: float,
+) -> pd.DataFrame:
+    predictions = predictions.sort_values(["model", "date", "permno"]).reset_index(drop=True)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    predictions.to_parquet(output_path, index=False)
+
+    manifest["total_elapsed_s"] = round(time.time() - t0, 1)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+
+    return predictions
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +271,7 @@ def run(
     output_path: Path = PREDICTIONS_PATH,
     manifest_path: Path = RUN_MANIFEST_PATH,
     append: bool = False,
+    resume: bool = False,
 ) -> pd.DataFrame:
     """
     Run the full rolling-window training and prediction loop.
@@ -205,6 +284,9 @@ def run(
         overwrite just those models), run the new models, and write the
         merged result back.  Useful for re-running a single model without
         losing the other 7.
+    resume : bool
+        If True with ``append``, keep any fully completed years already present
+        for ``models_to_run`` and continue from the first missing year.
 
     Returns
     -------
@@ -230,6 +312,9 @@ def run(
     log.info(f"  Test window: {ts_start.date()} → {ts_end.date()}  "
              f"({len(test_years)} years)")
 
+    if resume and not append:
+        raise ValueError("--resume requires --append so existing predictions are preserved.")
+
     # Hyperparameter selection
     hp_linear, hp_tree = select_all_hyperparams(panel, feature_cols, models_to_run)
 
@@ -247,17 +332,53 @@ def run(
     )
     log.info(f"  Pre-test mean excess return: {pre_test_mean:.4%}/mo")
 
-    all_preds: list[pd.DataFrame] = []
     manifest: dict = {
         "run_timestamp": datetime.now(timezone.utc).isoformat(),
         "test_start": test_start,
         "test_end": test_end,
         "models": list(catalogue.keys()),
+        "append": append,
+        "resume": resume,
         "hp_linear": hp_linear,
         "hp_tree": hp_tree,
         "pre_test_mean_ret": pre_test_mean,
         "years": {},
     }
+
+    existing_predictions = empty_predictions()
+    completed_years: set[int] = set()
+    if output_path.exists():
+        existing_predictions = pd.read_parquet(output_path)
+        existing_predictions["date"] = pd.to_datetime(existing_predictions["date"])
+
+    if append:
+        current_predictions = existing_predictions.loc[
+            ~existing_predictions["model"].isin(models_to_run)
+        ].copy()
+        if resume:
+            completed_years = get_completed_years(
+                existing_predictions,
+                panel,
+                models_to_run,
+                ts_start,
+                ts_end,
+            )
+            if completed_years:
+                kept_completed = existing_predictions.loc[
+                    existing_predictions["model"].isin(models_to_run)
+                    & existing_predictions["date"].dt.year.isin(completed_years)
+                ].copy()
+                current_predictions = pd.concat(
+                    [current_predictions, kept_completed],
+                    ignore_index=True,
+                )
+                log.info(
+                    "Resume mode: keeping completed years for %s: %s",
+                    models_to_run,
+                    sorted(completed_years),
+                )
+    else:
+        current_predictions = empty_predictions()
 
     for year in test_years:
         year_t0 = time.time()
@@ -274,11 +395,22 @@ def run(
         if len(test) == 0:
             continue
 
+        if year in completed_years:
+            manifest["years"][str(year)] = {
+                "n_train": int(len(train)),
+                "n_test": int(len(test)),
+                "elapsed_s": 0.0,
+                "status": "skipped_resume",
+            }
+            log.info("  %s: skipped (resume found complete predictions)", year)
+            continue
+
         X_train_full = train[feature_cols].values.astype(np.float32)
         y_train = train["ret_exc"].values.astype(np.float32)
         X_test_full = test[feature_cols].values.astype(np.float32)
 
         meta = test[["permno", "date"]].copy()
+        year_preds: list[pd.DataFrame] = []
 
         for model_name, model_factory in catalogue.items():
             # OLS-3 uses only 3 features
@@ -290,45 +422,48 @@ def run(
                 X_te = X_test_full
 
             model = model_factory()
-            model.fit(X_tr, y_train)
-            preds = model.predict(X_te)
-            if hasattr(preds, "ravel"):
-                preds = preds.ravel()
+            try:
+                model.fit(X_tr, y_train)
+                preds = model.predict(X_te)
+                if hasattr(preds, "ravel"):
+                    preds = preds.ravel()
+            finally:
+                if hasattr(model, "release_resources"):
+                    model.release_resources()
+                del model
+                gc.collect()
 
             df_pred = meta.copy()
             df_pred["model"] = model_name
             df_pred["pred_ret"] = preds.astype(np.float32)
-            all_preds.append(df_pred)
+            year_preds.append(df_pred)
 
         elapsed = time.time() - year_t0
+        year_predictions = pd.concat(year_preds, ignore_index=True)
+        current_predictions = pd.concat([current_predictions, year_predictions], ignore_index=True)
         manifest["years"][str(year)] = {"n_train": int(len(train)),
                                          "n_test": int(len(test)),
-                                         "elapsed_s": round(elapsed, 1)}
+                                         "elapsed_s": round(elapsed, 1),
+                                         "status": "completed"}
+        current_predictions = persist_progress(
+            current_predictions,
+            manifest,
+            output_path,
+            manifest_path,
+            t0,
+        )
         log.info(f"  {year}: {len(train):,} train obs, {len(test):,} test obs  "
                  f"({elapsed:.0f}s)")
 
-    predictions = pd.concat(all_preds, ignore_index=True)
-    predictions = predictions.sort_values(["model", "date", "permno"]).reset_index(drop=True)
+    predictions = persist_progress(
+        current_predictions,
+        manifest,
+        output_path,
+        manifest_path,
+        t0,
+    )
 
-    # Merge with existing file when --append is set
-    if append and output_path.exists():
-        existing = pd.read_parquet(output_path)
-        existing = existing[~existing["model"].isin(models_to_run)]
-        predictions = pd.concat([existing, predictions], ignore_index=True)
-        predictions = predictions.sort_values(["model", "date", "permno"]).reset_index(drop=True)
-        log.info(f"Append mode: merged with existing predictions "
-                 f"({len(existing):,} kept + {len(all_preds)} new batches)")
-
-    # Save predictions
     log.info(f"Writing {len(predictions):,} predictions to {output_path} …")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    predictions.to_parquet(output_path, index=False)
-
-    # Save run manifest
-    manifest["total_elapsed_s"] = round(time.time() - t0, 1)
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(manifest_path, "w") as f:
-        json.dump(manifest, f, indent=2)
     log.info(f"Run manifest written to {manifest_path}")
     log.info(f"Total time: {manifest['total_elapsed_s']:.0f}s")
 
@@ -359,6 +494,14 @@ def _parse_args() -> argparse.Namespace:
             "If set, load existing predictions.parquet, drop the models being "
             "re-run, append new predictions, and write back.  Useful for "
             "re-running a single model without losing others."
+        ),
+    )
+    p.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "If set with --append, keep already-completed years for the chosen "
+            "models and continue from the first missing year."
         ),
     )
     p.add_argument(
@@ -396,6 +539,7 @@ def main() -> None:
         test_end=args.test_end,
         models_to_run=models_to_run,
         append=args.append,
+        resume=args.resume,
     )
 
 

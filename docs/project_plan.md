@@ -179,13 +179,15 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 | GLM (group LASSO) | `linear_models.py` | Group penalty λ via validation |
 | Random Forest | `tree_models.py` | max_depth ∈ {2, 3, 4}, n_estimators ≥ 300, min_samples_leaf = 1000; selected: max_depth=2 |
 | GBRT | `tree_models.py` | learning_rate = 0.01 (fixed), max_depth ∈ {1, 2}, subsample = 0.5; selected: lr=0.01, depth=2 |
-| NN1–NN5 | `neural_nets.py` | hidden units per layer = 32, dropout = 0.50, L1 penalty, Adam lr = 0.001, **ensemble of 10 seeds** |
+| NN1–NN5 | `neural_nets.py` | hidden units per layer = 32, dropout = 0.50, L1 penalty, Adam lr = 0.001; NN1–NN2 were run with **10 seeds**, NN3–NN5 switch to a **3-seed deadline-mode ensemble** |
 
-### Current execution status (2026-05-24)
+### Current execution status (2026-05-25)
 - Non-NN models complete and evaluated on 1987–2016.
 - NN1 complete and evaluated (close to GKX NN1 OOS R² benchmark).
 - NN2 complete and evaluated (positive OOS R², but below NN1 and below GKX NN2 benchmark).
-- NN3–NN5 queued for cloud training.
+- NN3 complete and merged from Kaggle under the reduced 3-seed deadline-mode setup.
+- NN4 complete and merged from local CPU run under the reduced 3-seed deadline-mode setup.
+- NN5 remains pending under the same reduced 3-seed deadline-mode setup.
 
 ### Training Loop (`src/models/train_eval.py`)
 - Iterate month-by-month from 1987-01 to the end of the test window.
@@ -200,7 +202,7 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 `data/processed/predictions.parquet` · `data/processed/portfolio_returns.parquet`
 
 ### ⚠ Bottlenecks
-- **Compute time:** NN training (10 seeds × 5 architectures × ~360 rolling months) can take 12–24 hours on CPU. Use GPU (TF auto-detects CUDA). Consider running on university HPC or cloud for NN only.
+- **Compute time:** NN training (10 seeds × 5 architectures × ~360 rolling months) is too slow on CPU for the remaining deadline. The project therefore keeps the full 10-seed results already obtained for NN1–NN2, completes NN3 and NN4 with a reduced 3-seed setup (Kaggle/local split), and leaves NN5 pending under the same deadline-mode constraint.
 - **NN reproducibility:** Set seeds at the top of every training run: `np.random.seed(seed)`, `tf.random.set_seed(seed)`, `random.seed(seed)`. Log all seeds in a run manifest (`data/processed/run_manifest.json`).
 - **GBRT memory:** Scikit-learn's `GradientBoostingRegressor` is slow for large N. Use `lightgbm.LGBMRegressor` as a drop-in replacement with identical interface.
 - **Target variable:** Predict excess return (raw return minus risk-free rate), not total return. Use the 1-month T-bill rate from the FF factors file.
@@ -414,7 +416,7 @@ report/
 | Non-US equities | **Out of scope** |
 | TC data source | Amihud (2002) as primary; fixed bps schedule as robustness check |
 | NN framework | TensorFlow / Keras (matches GKX original implementation) |
-| NN ensemble | 10 seeds per architecture, average predictions before portfolio sort |
+| NN ensemble | Mixed due to deadline constraints: NN1–NN2 use 10 seeds, NN3–NN4 use 3 seeds, NN5 pending (target 3 seeds) |
 | Feature parsimony shortlist | Determined algorithmically (Phase 5 methodology) — not hard-coded |
 | WRDS credentials | Read from `WRDS_USER` environment variable; never commit credentials |
 | Compute | Run NN training on GPU if available; use LightGBM for GBRT |
@@ -428,7 +430,7 @@ Run these checks at the end of each phase before moving to the next.
 - [ ] **Phase 2 — Look-ahead guard:** For all December fiscal-year Compustat rows, assert `feature_month >= datadate + 6 months`. Implement as a pytest in `tests/test_no_lookahead.py`.
 - [ ] **Phase 3 — IC sanity:** Monthly average IC for `mom12m`, `bm`, `ep` should be positive and ≈ 0.02–0.05. A negative mean IC indicates a sign error in construction.
 - [ ] **Phase 3 — Coverage:** Feature coverage heatmap shows no characteristic has < 50% non-missing after 1980.
-- [ ] **Phase 4 — Replication:** OOS-R² for NN3–NN5 should be ≈ 0.40–0.45% (GKX Table 3). L/S Sharpe: NN > RF > ENet > OLS.
+- [ ] **Phase 4 — Replication:** NN3 and NN4 are now complete but materially below GKX benchmarks; run NN5 and reassess whether any deep model beyond NN2 approaches GKX's reported NN gains.
 - [ ] **Extension 1 — Rolling R²:** Compute 12-month rolling OOS-R²; verify it does not go below −1% for more than 3 consecutive months for the best model.
 - [ ] **Extension 2 — Turnover face-validity:** Monthly turnover for `mom1m`-weighted portfolio should be materially higher than for `bm`-weighted portfolio (momentum rebalances frequently; value does not).
 - [ ] **Extension 3 — Parsimony cost:** $\Delta R^2$ (full − parsimonious) should be ≤ 30% of full-model R². If larger, revisit the feature selection methodology.

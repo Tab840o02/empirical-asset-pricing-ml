@@ -74,6 +74,7 @@ def run_one_model(args: argparse.Namespace, model: str) -> None:
 
     if not args.no_append:
         cmd.append("--append")
+        cmd.append("--resume")
 
     print("Running:", " ".join(cmd))
     subprocess.run(cmd, check=True)

@@ -1,10 +1,10 @@
 # Project Status
 
-> Last updated: 2026-05-24 (Phase 4 — NN2 complete and evaluated)
+> Last updated: 2026-05-25 (Phase 4 — NN3 and NN4 complete; NN5 pending in 3-seed deadline mode)
 
 ---
 
-## Current Phase: 4 — Model Training & Evaluation (NN1–NN2 complete, NN3–NN5 pending)
+## Current Phase: 4 — Model Training & Evaluation (NN1–NN4 complete, NN5 pending)
 
 | Phase | Name | Status | Notes |
 |-------|------|--------|-------|
@@ -12,7 +12,7 @@
 | 1 | WRDS data extraction | ✅ Done | All raw tables downloaded, audited |
 | 2 | Data cleaning & CCM merge | ✅ Done | merged_panel 2.5M rows × 118 cols, 11/11 tests ✅ |
 | 3 | Feature engineering (94 characteristics) | ✅ Done | **94/94** characteristics implemented including `hire`, `ear` |
-| 4 | Model training & evaluation | 🔄 In progress | 10 models evaluated (8 non-NN + NN1 + NN2), 13.97M predictions, 1987–2016; NN3–NN5 pending |
+| 4 | Model training & evaluation | 🔄 In progress | 12 models evaluated (8 non-NN + NN1 + NN2 + NN3 + NN4), 16.77M predictions, 1987–2016; only NN5 pending under reduced 3-seed deadline mode |
 | 5a | Extension — Post-2020 OOS | 🔲 Not started | — |
 | 5b | Extension — Net of transaction costs | 🔲 Not started | — |
 | 5c | Extension — Feature parsimony | 🔲 Not started | — |
@@ -27,11 +27,11 @@
 
 ### Training scheme
 - Expanding window: train on all months < Jan Y, predict all months in year Y
-- Test window: 1987–2016 (360 months, **13,973,220** stock-month predictions)
+- Test window: 1987–2016 (360 months, **16,767,864** stock-month predictions)
 - Features panel: 2,431,956 rows × **94 features** (all 94 GKX characteristics)
 - Hyperparameter selection: train 1957–1974, validate 1975–1986
 - Selected hyperparams: pcr_n=50, pls_n=10, enet_α=0.001 l1=0.1, glm_α=0.001, rf_depth=2, gbrt_lr=0.01 depth=2
-- Runtime: ~84 min full non-NN run on CPU + NN1 and NN2 full expanding-window runs
+- Runtime: ~84 min full non-NN run on CPU + NN1 and NN2 full 10-seed expanding-window runs + NN3 Kaggle run (23,331.6s) + NN4 local run (20,003s)
 
 ### Pooled OOS R² vs GKX Table 3 (1987–2016)
 
@@ -47,7 +47,9 @@
 | GBRT | −0.989% | +0.34% | ⚠️ Improved, still negative |
 | NN1 | +0.344% | +0.39% | ✅ Close |
 | NN2 | +0.178% | +0.40% | ⚠️ Positive, below GKX and below NN1 |
-| NN3–NN5 | not yet run | +0.41–0.55% | ⏳ Pending |
+| NN3 | +0.023% | +0.41% | ⚠️ Completed, far below paper |
+| NN4 | +0.003% | +0.45% | ❌ Completed, near-zero OOS R² |
+| NN5 | not yet run | +0.55% | ⏳ Pending (3-seed deadline-mode run) |
 
 > **Tree finding:** The tree-fix pass validated pipeline logic. Forcing RF to search deeper trees selected `max_depth=2` but worsened RF OOS R². Restricting GBRT to `lr=0.01` improved OOS R² from `−3.80%` to `−0.99%` by reducing prediction variance.
 
@@ -71,7 +73,7 @@
 ### Open issues
 
 1. **Tree models remain below paper** — both RF and GBRT OOS R² are negative and portfolio Sharpes are well below GKX; further tree work is optional
-2. **Neural queue** — NN1 and NN2 complete and evaluated; NN3–NN5 queued
+2. **Neural queue** — NN1 and NN2 complete under the original 10-seed setup; NN3 (Kaggle) and NN4 (local) are complete under the reduced 3-seed deadline-mode setup; NN5 remains pending
 
 ---
 
@@ -231,10 +233,10 @@ Only **Tobia** has a WRDS account. The raw Parquet files (~12 GB total) are on h
 ## Immediate next steps
 
 1. ✅ Phase 3 complete — `features_panel.parquet` validated
-2. ✅ Phase 4 partial complete — 10 models evaluated (8 non-NN + NN1 + NN2)
-3. ⬜ Phase 4 NN3–NN5 — run `python -m src.models.train_eval --models nn3 nn4 nn5` (very long on CPU)
+2. ✅ Phase 4 partial complete — 12 models evaluated (8 non-NN + NN1 + NN2 + NN3 + NN4)
+3. ⬜ Phase 4 NN5 — run `python -m src.models.train_eval --models nn5 --append --resume` (deadline-mode 3 seeds)
 4. ⬜ Phase 5a — post-2020 OOS extension (`src/extensions/post2020_eval.py`)
 5. ⬜ Phase 5b — net of transaction costs (`src/extensions/transaction_costs.py`)
 6. ⬜ Phase 5c — feature parsimony (`src/extensions/feature_parsimony.py`)
 7. ⬜ Notebooks 03, 04 — figures and tables for report
-8. ⬜ Finalize report tables/figures after NN3–NN5 evaluation
+8. ⬜ Finalize report tables/figures after NN5 evaluation

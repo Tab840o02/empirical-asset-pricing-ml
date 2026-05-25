@@ -7,39 +7,40 @@ Usage in a Kaggle code cell:
 
 from __future__ import annotations
 
-import os
+import shutil
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 
-def find_required_zip(name: str) -> Path:
-    candidates = list(Path("/kaggle/input").rglob(name))
-    if not candidates:
-        raise FileNotFoundError(f"Could not find {name} under /kaggle/input")
-    return candidates[0]
-
-
-def unzip_to_work(zip_path: Path, dest: Path) -> None:
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(dest)
+def find_required_file(pattern: str) -> Path:
+    candidate = next(Path("/kaggle/input").rglob(pattern), None)
+    if candidate is None:
+        raise FileNotFoundError(f"Could not find {pattern} under /kaggle/input")
+    return candidate
 
 
 def main() -> None:
     work = Path("/kaggle/working/gkx")
     work.mkdir(parents=True, exist_ok=True)
 
-    code_zip = find_required_zip("gkx_code_bundle.zip")
-    data_zip = find_required_zip("gkx_processed_bundle.zip")
+    src_init = find_required_file("src/__init__.py")
+    code_root = src_init.parent.parent
+    shutil.copytree(code_root, work, dirs_exist_ok=True)
 
-    unzip_to_work(code_zip, work)
-    unzip_to_work(data_zip, work)
+    processed_dest = work / "data" / "processed"
+    processed_dest.mkdir(parents=True, exist_ok=True)
+    for pattern in ("*.parquet", "*.json"):
+        for source in Path("/kaggle/input").rglob(pattern):
+            shutil.copy2(source, processed_dest / source.name)
 
-    os.chdir(work)
-    print("CWD:", Path.cwd())
+    print("CWD:", work)
+    print("features_panel:", processed_dest / "features_panel.parquet")
 
-    subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-r", str(work / "requirements.txt")],
+        check=True,
+    )
 
     import tensorflow as tf
 
