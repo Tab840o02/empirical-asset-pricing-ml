@@ -1,0 +1,24 @@
+\begin{table}[H]
+\centering
+\caption{Extension~3: Parsimonious model L/S portfolio performance (audited). NN4: 312/360 non-degenerate months; NN5: 144/360.}
+\label{tab:parsimony_port}
+\begin{tabular}{lccccccr}
+\toprule
+Model & Ann. Ret & Ann. Vol & Sharpe & FF5 $\alpha$ & $t_\alpha$ & $p_\alpha$ & Months \\
+\midrule
+\texttt{nn2} & 0.168 & 0.184 & 0.915 & 0.151 & 4.40 & 0.0000 & 360 \\
+\texttt{nn5} & 0.072 & 0.087 & 0.830 & 0.098 & 3.49 & 0.0005 & 144 \\
+\texttt{nn1} & 0.171 & 0.213 & 0.801 & 0.154 & 4.61 & 0.0000 & 360 \\
+\texttt{pcr} & 0.144 & 0.186 & 0.773 & 0.131 & 3.83 & 0.0001 & 360 \\
+\texttt{pls} & 0.136 & 0.191 & 0.709 & 0.135 & 3.67 & 0.0002 & 360 \\
+\texttt{ols\_all} & 0.125 & 0.185 & 0.678 & 0.127 & 3.42 & 0.0006 & 360 \\
+\texttt{enet} & 0.126 & 0.188 & 0.669 & 0.122 & 3.43 & 0.0006 & 360 \\
+\texttt{nn4} & 0.071 & 0.132 & 0.536 & 0.073 & 2.86 & 0.0043 & 312 \\
+\texttt{ols3} & 0.090 & 0.170 & 0.527 & 0.085 & 2.69 & 0.0072 & 360 \\
+\texttt{glm} & 0.099 & 0.204 & 0.486 & 0.082 & 2.24 & 0.0250 & 360 \\
+\texttt{nn3} & 0.042 & 0.117 & 0.362 & 0.045 & 2.45 & 0.0144 & 360 \\
+\texttt{gbrt} & 0.047 & 0.185 & 0.255 & 0.039 & 1.05 & 0.2940 & 360 \\
+\texttt{rf} & 0.047 & 0.212 & 0.223 & 0.031 & 0.84 & 0.4022 & 360 \\
+\bottomrule
+\end{tabular}
+\end{table}

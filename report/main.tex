@@ -1,0 +1,375 @@
+% ============================================================
+%  Empirical Asset Pricing via Machine Learning
+%  Replication of Gu, Kelly & Xiu (2020) + Three Extensions
+%  Nova School of Business & Economics — Group G
+% ============================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- packages ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{xcolor}
+\usepackage{setspace}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{appendix}
+
+% ---------- hyperref setup ----------
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue,
+  pdftitle={Empirical Asset Pricing via Machine Learning: Replication and Extensions},
+  pdfauthor={Group G — Nova SBE}
+}
+
+% ---------- section spacing ----------
+\titlespacing*{\section}{0pt}{1.0ex plus 0.5ex minus 0.2ex}{0.5ex plus 0.2ex}
+\titlespacing*{\subsection}{0pt}{0.8ex plus 0.3ex minus 0.2ex}{0.3ex plus 0.1ex}
+
+% ---------- caption setup ----------
+\captionsetup{font=small, labelfont=bf}
+
+% ---------- header / footer ----------
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small GKX (2020) Replication --- Group G}
+\lhead{\small Nova School of Business \& Economics}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ============================================================
+\begin{document}
+
+% ============================================================
+%  COVER PAGE  (does not count toward the 5-page body limit)
+% ============================================================
+\begin{titlepage}
+  \thispagestyle{empty}
+  \centering
+  \vspace*{1.5cm}
+
+  \includegraphics[width=0.38\textwidth]{logo.png}
+
+  \vspace{1.8cm}
+  {\LARGE\bfseries Empirical Asset Pricing via Machine Learning}\\[0.6cm]
+  {\large\bfseries Replication and Extensions of Gu, Kelly \& Xiu (2020)}\\[1.0cm]
+
+  \rule{0.6\textwidth}{0.6pt}\\[0.8cm]
+
+  {\large\bfseries Hedge Funds --- Final Project}\\[0.3cm]
+  {\large Nova School of Business \& Economics}\\[0.8cm]
+
+  \rule{0.6\textwidth}{0.6pt}\\[0.8cm]
+
+  {\large\bfseries Group G}\\[0.5cm]
+  \begin{tabular}{rl}
+    75296 & Andrea Graziani \\[4pt]
+    70963 & Matteo Ferrazza \\[4pt]
+    73602 & Valerio De Vivo \\[4pt]
+    70943 & Tobia Cosentini \\
+  \end{tabular}
+
+  \vfill
+  {\normalsize May 2026}
+\end{titlepage}
+
+% Reset page counter so body pages are 1--5
+\setcounter{page}{1}
+
+% ============================================================
+%  SECTION 1 — MOTIVATION
+% ============================================================
+\section{Motivation}
+
+There is something almost audacious about the central premise of \citet{GKX2020}: that a handful of accounting ratios and return statistics---the kind any analyst could compute in a spreadsheet---might contain enough information to predict the future cross-section of US stock returns, and that a neural network might extract that information far better than any regression ever could. We find this question genuinely fascinating, and not just because the stakes for practitioners are high.
+
+Finance has spent decades cataloguing firm characteristics that seem to predict returns. The result is what \citet{Harvey2016} call the \textit{factor zoo}: more than 300 documented return predictors, each backed by its own $t$-statistic and a compelling narrative. The trouble is that most of them probably do not hold up. The reproducibility crisis in empirical finance is real: once you account for the sheer number of hypotheses tested across the literature, conventional significance thresholds are far too permissive, and large-scale replication exercises find that the majority of published anomalies lose statistical significance out-of-sample \citep{Harvey2016}. The question of whether \textit{any} cross-sectional signal survives a clean, look-ahead-free, genuinely out-of-sample evaluation is therefore wide open---and worth answering rigorously.
+
+Machine learning offers something classical factor models cannot: the flexibility to detect non-linear interactions between characteristics and expected returns, without requiring the researcher to specify those interactions in advance. More importantly for investors, ML forces model evaluation to be genuinely out-of-sample. GKX's finding---that deep neural networks achieve an OOS $R^2$ of roughly 0.40\% and a long-short Sharpe ratio above 1.4---is remarkable precisely because it survives this discipline. But their test window ended in 2016, before the COVID crash, before the fastest rate-hiking cycle in four decades, and before practitioners seriously asked whether those signals survive realistic transaction costs or whether a parsimonious 15-feature model could do nearly as well. These are the questions that animated our work; full results are in Appendices~\ref{app:replication}--\ref{app:pipeline}.
+
+% ============================================================
+%  SECTION 2 — REPLICATION
+% ============================================================
+\section{Replication}
+
+\subsection{Setup}
+
+We replicate all 13 models from \citet{GKX2020} on US common stocks from CRSP and Compustat. The training window is 1957--1974; the validation window is 1975--1986; the out-of-sample (OOS) test window is 1987--2016 (360 months). The universe consists of NYSE/AMEX/NASDAQ common shares (CRSP share codes 10/11), after removing financial firms (SIC 6000--6999). Firm characteristics are rank-normalised to $[-1,\,+1]$ cross-sectionally each month. The target variable is the excess return (stock return minus one-month T-bill). Delisting returns are imputed at $-30\%$ for performance-related delistings with missing \texttt{dlret}, following \citet{ShumwayWarther1999}.
+
+The model zoo covers: three OLS variants (\texttt{ols3}, \texttt{ols\_all}, \texttt{glm}); PCR and PLS; elastic net (\texttt{enet}); random forest (\texttt{rf}); gradient-boosted regression trees (\texttt{gbrt}, via LightGBM); and neural networks NN1--NN5 (1--5 hidden layers, each an ensemble of 10 random seeds). OOS $R^2$ follows \citet{CampbellThompson2008}:
+\[
+  R^2_{\mathrm{OOS}} = 1 - \frac{\sum_{t,i}(r_{it}-\hat{g}_{it})^2}{\sum_{t,i}(r_{it}-\bar{r})^2},
+\]
+where $\bar{r}$ is the expanding-window pre-test mean excess return.
+
+Hyperparameter selection is performed entirely on the validation window (1975--1986) to prevent any contamination of the test period. For PCR and PLS, the number of latent components is chosen by minimising mean-squared prediction error on the validation set across a grid of $\{3, 5, 10, 20, 50\}$ components. For elastic net, the penalty strength $\alpha$ and $\ell_1$-ratio are jointly searched over a $3 \times 3$ grid. For tree models, maximum depth and subsample rate are validated independently; we find that shallow trees (depth~2) dominate deeper alternatives, consistent with GKX's finding that low-complexity learners avoid overfitting better in this high-noise, low-signal environment. Neural networks use batch normalisation, dropout (rate~0.50), and an $\ell_1$ penalty on all weight matrices, trained with Adam at learning rate 0.001; ensembling 10 random seeds per architecture reduces prediction variance by roughly 30\% relative to a single-seed run, as measured on the validation set.
+
+Two data construction choices are worth noting explicitly. First, look-ahead bias prevention is enforced structurally rather than by convention: Compustat annual (quarterly) fundamentals are assigned a public availability date six (three) months after fiscal year-end, and this date---not the fiscal year-end itself---determines when a characteristic enters the feature panel. Any slip here silently inflates OOS $R^2$ by leaking future information into the training signal, and it is exactly the kind of bug that is easy to introduce and difficult to detect from output alone. We verified the guard with a dedicated unit test. Second, delisting returns matter more than is often appreciated: when a stock is delisted for performance reasons and the delisting return is missing from CRSP, we impute $-30\%$ following \citet{ShumwayWarther1999}. Ignoring this creates survivorship bias because the worst-performing delistings systematically exit the panel with overstated terminal returns, making every model's long book look slightly better than it actually was.
+
+\subsection{Replication Limitations}
+
+\begin{itemize}[leftmargin=*, noitemsep, topsep=1pt]
+  \item \textbf{Data vintage.} Our CRSP/Compustat extract reflects a 2025 pull; GKX used circa-2018 data. Retroactive restatements introduce small differences in returns and fundamentals.
+  \item \textbf{Universe and linkage.} We enforce \texttt{shrcd} $\in\{10,11\}$ (GKX's exact universe is underspecified). The CCM link table's \texttt{linkenddt = `E'} sentinel must be replaced with \texttt{`9999-12-31'} before date-filtering or all active PERMNO--GVKEY links are silently dropped.
+  \item \textbf{Software stack.} Keras/Theano (GKX) vs.\ TensorFlow~2.x and LightGBM (ours). Weight-initialisation and histogram-splitting differences explain why our GBRT OOS~$R^2$ is more negative than GKX's.
+  \item \textbf{Compute budget.} CPU-only training limits ensemble size and hyperparameter search, introducing Monte Carlo variance into reported Sharpe ratios.
+\end{itemize}
+
+\subsection{Key Findings}
+
+Appendix Table~\ref{tab:oosr2} reports OOS $R^2$ for all 13 models. Neural networks lead: NN1 achieves 0.344\%, broadly consistent with GKX's 0.40\% (their Table~3). Elastic net (0.180\%), PCR (0.169\%), and PLS (0.163\%) also beat the benchmark, in line with GKX. Random forest ($-0.51\%$) and GBRT ($-0.99\%$) are negative, matching GKX's finding that tree ensembles are insufficiently regularised relative to their complexity.
+
+The IC ranking differs slightly: GLM attains the highest mean IC (0.060), while elastic net records the highest ICIR (0.878), consistent with GKX's observation that linear regularised models have more stable rank orderings than deep networks (Appendix Table~\ref{tab:ic}). Portfolio results (Appendix Table~\ref{tab:portfolio}) confirm economic significance: NN1 generates a Fama--French five-factor \citep{FamaFrench2015} alpha of 28.3\% per annum ($t = 6.21$). The divergence between OOS $R^2$ and Sharpe ratio for some models deserves further attention. NN1's OOS $R^2$ of 0.344\% is almost twice eLasso's 0.180\%, yet their Sharpe ratios are 1.596 and 0.724 respectively---a 2.2$\times$ gap. This arises because OOS $R^2$ is a stock-weighted metric that rewards accurate prediction across the full universe including mid-cap stocks with small return spreads, whereas the long-short portfolio concentrates exposure in the extreme deciles. Deep networks appear to extract non-linear signals that are disproportionately concentrated in the tails of the cross-sectional return distribution, translating modest aggregate $R^2$ gains into large portfolio returns. Conversely, GLM achieves the highest mean IC (0.060) but a Sharpe of only 0.647, suggesting its rank-ordering skill is most uniform across the distribution rather than tail-concentrated. These divergences are not artefacts of our replication; they are visible in GKX's original Table~3 and are discussed by \citet{GKX2020} as evidence that the choice of evaluation metric materially affects model rankings. Deviations from GKX are catalogued in Appendix~\ref{app:deviations}.
+
+% ============================================================
+%  SECTION 3 — EXTENSION
+% ============================================================
+\section{Extension}
+
+We implement three original extensions motivated by practical gaps in GKX. All extensions use the same data pipeline and evaluation code as the replication, with no in-sample look-ahead.
+
+\subsection{Extension 1: Post-2020 Out-of-Sample Generalization}
+
+\textbf{Motivation.} GKX validate their models on 1987--2016---a period that predates the largest market dislocations of the past decade. For a practitioner deciding whether to deploy an ML signal today, the more pressing question is whether the models retain predictive power through structural regime shifts: the COVID-19 crash (2020), a sharp reflationary rally (2021), and the fastest interest-rate hiking cycle since 1980 (2022--2023). A model that performs well only in benign equity regimes has limited operational value.
+
+\vspace{4pt}
+\textbf{Methodology.} We apply the Phase~4 models---trained exclusively on pre-2017 data---forward to 2017--2024 without any re-fitting or re-calibration. Sub-periods are delineated by market-structure events: pre-COVID (2017--2019), COVID crash (2020), reflation (2021), rate-hike (2022), and post-normalisation (2023--2024). This design is deliberately conservative: the models see no data from the evaluation window, isolating true generalisation from mere recalibration.
+
+\vspace{4pt}
+\textbf{Findings.} NN2 is the only model maintaining positive OOS $R^2$ across all five evaluated sub-periods (ranging from $+0.007\%$ post-normalisation to $+0.079\%$ during reflation). NN1 posts $+0.101\%$ over the full 2017+ window but turns negative in the Pre-COVID period ($-0.048\%$), placing it second overall in cross-regime robustness. Tree models exhibit high OOS $R^2$ during COVID (RF: 0.128\%; GBRT: 0.311\%) but collapse in the rate-hike year ($-0.64\%$ and $-1.06\%$), implying they capture tail-risk non-linearities without stable cross-sectional structure. Linear models dominate in 2022, consistent with a factor-rotation environment where value and momentum characteristics regain relative importance. Full results are in Appendix~\ref{app:post2020} (Table~\ref{tab:ext_oosr2} and Figure~\ref{fig:heatmap}).
+
+The regime decomposition also reveals an asymmetry in error type. During COVID (2020), models with positive OOS $R^2$ correctly predict the direction of cross-sectional return dispersion---firms with strong balance sheets and low leverage outperforming distressed firms---rather than capturing absolute return levels. During the rate-hike period (2022), the cross-section partially collapses as rising discount rates compress valuation multiples uniformly, making relative prediction harder: only value-oriented linear models (PLS, eLasso) maintain positive signal because book-to-market and earnings yield become the dominant cross-sectional discriminators in an environment of multiple compression. This interaction between macro regime and the information content of specific feature groups directly motivates our third extension on feature parsimony.
+
+\subsection{Extension 2: Net-of-Transaction-Costs Performance}
+
+\textbf{Motivation.} Gross Sharpe ratios are the currency of academic finance, but practitioners care about what arrives in the fund after execution costs. \citet{GKX2020} do not address transaction costs; their model rankings could theoretically reverse once realistic spreads and market impact are factored in. Quantifying the net edge is therefore a prerequisite for any practical deployment recommendation.
+
+\vspace{4pt}
+\textbf{Methodology.} Monthly turnover is the sum of absolute position weight changes between consecutive months. Costs are estimated under two regimes: an Amihud-calibrated \citep{Amihud2002} schedule, where each stock's effective spread is inferred from its illiquidity ratio winsorised at the 99th cross-sectional percentile; and a fixed 10~bps one-way cost applied uniformly. Net monthly return is $r^{\mathrm{net}}_{t} = r^{\mathrm{gross}}_{t} - \text{turnover}_{t} \times \text{spread}_{t}$.
+
+\vspace{4pt}
+\textbf{Findings.} Model rank ordering by Sharpe ratio is fully preserved after transaction costs under both regimes---a result with direct practical implications, since investors can trust the gross model ranking as a reliable guide to net relative performance. NN1 incurs the largest absolute Sharpe drag ($\Delta = -0.125$ under Amihud) owing to high average monthly turnover (47\%) combined with elevated market-impact costs in small-cap positions. Net Sharpe ratios remain: NN1~=~1.47, NN2~=~1.40, PLS~=~0.80, PCR~=~0.77. Full results in Appendix~\ref{app:tc} (Table~\ref{tab:tc}).
+
+The null finding on rank changes is itself economically informative: the relative attractiveness ordering of ML models established on 1987--2016 data is robust to realistic implementation costs in the CRSP universe. A more demanding test would require intraday spread data and explicit market-impact modelling for large positions; our Amihud proxy is a monthly approximation that likely understates impact costs in the top and bottom decile stocks where model signals are most concentrated. We therefore treat the null result as a lower bound on transaction-cost robustness rather than a definitive verdict, and recommend practitioners apply an additional 5--10~bps haircut for market impact before treating the NN1 gross Sharpe of 1.596 as achievable net.
+
+\subsection{Extension 3: Feature Parsimony}
+
+\textbf{Motivation.} Deploying a model that ingests 94 firm characteristics creates three practical difficulties: data acquisition costs, model opacity (regulators and investors increasingly demand explainability), and the statistical risk that some characteristics contribute noise rather than signal. GKX do not examine whether a smaller feature set recovers most of the OOS $R^2$---a question central to both overfitting risk and real-world deployability.
+
+\vspace{4pt}
+\textbf{Methodology.} We select 15 features from a pre-specified allow-list of 18 economically motivated characteristics spanning value, momentum, profitability, investment, and liquidity. Selection uses RF permutation importance computed solely on the training-and-validation window (1957--1986); no test-period information enters the selection. The 15 chosen features are: \textit{cfp}, \textit{indmom}, \textit{chmom}, \textit{mom12m}, \textit{ep}, \textit{agr}, \textit{bm}, \textit{mom1m}, \textit{ill}, \textit{gp}, \textit{roe}, \textit{roaq}, \textit{retvol}, \textit{invest}, \textit{noa} (see Appendix~\ref{app:parsimony} Table~\ref{tab:features} for descriptions).
+
+\vspace{4pt}
+\textbf{Findings.} Linear models retain 50--75\% of their full-set OOS $R^2$ with one-sixth of the features, suggesting the marginal predictive content of the remaining 79 characteristics is limited for linear methods. NN1 retains 0.157\% vs.\ 0.344\% with all features---a meaningful but not catastrophic reduction. Most strikingly, GBRT and RF \textit{improve} with fewer features (GBRT: $-0.990\% \to +0.042\%$), a clear sign that tree ensembles overfit to noise characteristics in the 94-feature setting and that parsimonious selection acts as regularisation. An audit finding: NN4 and NN5 produce degenerate zero-variance predictions in 13\% and 60\% of test months under the parsimonious feature set; audited metrics restricting to non-degenerate months are in Appendix~\ref{app:parsimony} (Tables~\ref{tab:parsimony}, \ref{tab:parsimony_port}, Figures~\ref{fig:delta_r2}, \ref{fig:degen_months}).
+
+The parsimony result has a direct implication for the factor zoo debate \citep{Harvey2016}. If a 15-feature model recovers the majority of predictability while tree models actually \textit{improve} by dropping noise features, it suggests that a large fraction of the 94 GKX characteristics are redundant or spurious in the sense that they add noise rather than signal for ensemble learners. For linear models, the parsimony cost is larger in absolute terms (NN1 retains 46\% of its full-set OOS $R^2$) but the remaining signal is more interpretable and stable across sub-periods. Practitioners facing regulatory scrutiny or interpretability requirements can therefore achieve meaningful predictive power from a model whose inputs can each be individually justified on economic grounds---a result that speaks directly to the gap between academic ML finance and real-world deployment.
+
+% ============================================================
+%  SECTION 4 — WHAT AI COULDN'T TELL ME
+% ============================================================
+\section{What AI Couldn't Tell Me}
+
+All design decisions---model architectures, hyperparameter grids, the expanding-window training scheme, and ensemble size---were made by our group. One consequential choice was the decision to use an \textit{expanding} rather than a rolling training window: rolling windows would have given recent data higher effective weight and might have adapted faster to the post-2008 low-volatility regime, but at the cost of discarding decades of cross-sectional variation that improve regularisation in the high-dimensional feature space. We debated this explicitly and concluded that the expanding window better matched GKX's design, accepting the risk of stale early-period data rather than sacrificing sample depth. AI tools (GitHub Copilot) served exclusively as a code-implementation assistant.
+
+The limits of AI assistance are best illustrated by Phase~5c: NN5's canonical Sharpe (0.237, 360 months) conflicted sharply with a post-hoc recomputation (0.830). An AI assistant proposed arithmetic errors and stale caches; both were wrong. The real explanation---60\% of NN5's test months had exactly zero cross-sectional prediction variance, trivially balancing the long-short portfolio---emerged from manual inspection of the prediction distribution. The decision to flag this as a data-quality finding and report audited metrics over the 144 non-degenerate months was entirely ours.
+
+A third dimension where AI was insufficient concerns the treatment of NN4 and NN5 in the post-2020 extension. These models produced constant predictions---identical predicted returns for all stocks in every month of the 2017--2024 window---indicating that the deeper architectures had collapsed to the trivial zero-function under the distributional shift from training to deployment. An AI assistant, when asked how to handle this, suggested imputing the cross-sectional mean as a fallback prediction and proceeding with the evaluation. We rejected this: imputing the mean is equivalent to assigning every stock the same expected return, which produces a long-short portfolio with random sign and near-zero Sharpe by construction. Reporting that Sharpe as the ``NN4 post-2020 result'' would have been misleading. The right response was to exclude NN4 and NN5 from the extension evaluation entirely, document the collapse explicitly, and treat the collapse itself as a substantive finding about the brittleness of deeper networks under regime shift. That judgment call---what counts as a result worth reporting versus a model failure worth excluding---required genuine analytical discretion that no AI tool could supply.
+
+% ============================================================
+%  SECTION 5 — FUTURE EXTENSIONS AND CODE AVAILABILITY
+% ============================================================
+\section{Future Extensions and Code Availability}
+
+The scope of this project is bounded by CPU-only training, a fixed 10-seed ensemble, and a 2024 data horizon---all practical constraints rather than fundamental ones. Several extensions remain natural and tractable. GPU-accelerated training would permit larger neural network ensembles (e.g.\ 50 seeds per model), deeper architectures beyond NN5, and faster hyperparameter search via Bayesian optimisation, potentially closing the remaining gap with GKX's headline OOS~$R^2$. The test window could be extended continuously as new CRSP data becomes available, enabling genuinely rolling out-of-sample evaluation without the fixed 2024 cut-off. On the feature side, NLP-derived signals (earnings call sentiment, analyst revision text), ESG ratings, or alternative data sources (credit card transactions, satellite imagery) could be incorporated with minimal changes to the existing feature assembler. The transaction-cost module could be extended to a multi-period portfolio optimiser that jointly targets alpha and turnover, rather than post-hoc adjusting gross Sharpe ratios. The full codebase---data download, feature assembly, model training, evaluation, and all three extensions---is maintained in a private GitHub repository and is available for review or collaboration; contact the administrator for access.
+
+% ============================================================
+%  APPENDIX  (does not count toward the 5-page body limit)
+% ============================================================
+\clearpage
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+\setcounter{section}{0}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small Appendix --- GKX (2020) Replication}
+\lhead{\small Nova School of Business \& Economics}
+\cfoot{\thepage}
+
+% ============================================================
+\section{Replication Results (Phase 4)}
+\label{app:replication}
+
+\subsection{OOS $R^2$ --- Full Table}
+
+\noindent\small All 13 models; OOS window 1987--2016 (360 months).
+
+\input{tables/tab_oosr2.tex}
+
+\subsection{Long-Short Portfolio Performance}
+
+\noindent\small All returns annualised; Fama--French 5-factor alpha; Newey--West SE \citep{Newey1987}, 12 lags.
+
+\input{tables/tab_portfolio.tex}
+
+\subsection{Monthly Rank IC Statistics}
+
+\noindent\small Mean IC and ICIR across all 360 OOS months.
+
+\input{tables/tab_ic.tex}
+
+\subsection{OOS $R^2$ Bar Chart}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/fig_phase4_oosr2.png}
+  \caption{Phase~4 OOS $R^2$ across all 13 models (1987--2016). Blue bars positive; red bars negative.}
+  \label{fig:phase4_oosr2}
+\end{figure}
+
+\subsection{Deviations from GKX (2020)}
+\label{app:deviations}
+
+\noindent\small Minor differences attributable to CRSP/Compustat data vintage, universe filters (\texttt{shrcd} $\in \{10,11\}$), TensorFlow NN seeding, and LightGBM vs.\ sklearn GBRT.
+
+% ============================================================
+\section{Extension 1: Post-2020 Out-of-Sample Generalization}
+\label{app:post2020}
+
+\subsection{Sub-Period OOS $R^2$ Table}
+
+\noindent\small Models applied to 2017--2024 without re-fitting; sub-periods delineated by market-structure events.
+
+\input{tables/tab_ext_oosr2.tex}
+
+\subsection{Sub-Period Heatmap}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{figures/fig_phase5a_oosr2_heatmap.png}
+  \caption{Post-2020 OOS $R^2$ heatmap. Green: positive; red: negative. NN4/NN5 marked NaN (insufficient non-degenerate months).}
+  \label{fig:heatmap}
+\end{figure}
+
+% ============================================================
+\section{Extension 2: Transaction-Cost-Adjusted Performance}
+\label{app:tc}
+
+\subsection{Net-of-Cost Summary Table}
+
+\noindent\small Net monthly return $= r^{\mathrm{gross}} - \text{turnover} \times \text{spread}$; Amihud-calibrated and fixed 10\,bps regimes.
+
+\input{tables/tab_tc_summary.tex}
+
+% ============================================================
+\section{Extension 3: Feature Parsimony}
+\label{app:parsimony}
+
+\subsection{Selected Features}
+
+\noindent\small 15 features chosen by RF permutation importance on 1957--1986 data; spanning value, momentum, profitability, investment, and liquidity.
+
+\begin{table}[H]
+  \centering
+  \small
+  \begin{tabular}{lll}
+    \toprule
+    Feature & Category & Description \\
+    \midrule
+    \texttt{bm}       & Value         & Book-to-market ratio \\
+    \texttt{ep}       & Value         & Earnings-to-price ratio \\
+    \texttt{cfp}      & Value         & Cash-flow-to-price ratio \\
+    \texttt{mom1m}    & Momentum      & 1-month return (short-term reversal) \\
+    \texttt{mom12m}   & Momentum      & 12-month return (intermediate momentum) \\
+    \texttt{chmom}    & Momentum      & 6-month change in momentum \\
+    \texttt{indmom}   & Momentum      & Industry momentum \\
+    \texttt{gp}       & Profitability & Gross profitability \\
+    \texttt{roe}      & Profitability & Return on equity \\
+    \texttt{roaq}     & Profitability & Quarterly return on assets \\
+    \texttt{agr}      & Investment    & Asset growth rate \\
+    \texttt{invest}   & Investment    & Capital investment \\
+    \texttt{noa}      & Investment    & Net operating assets \\
+    \texttt{retvol}   & Liquidity     & Return volatility \\
+    \texttt{ill}      & Liquidity     & Amihud illiquidity \\
+    \bottomrule
+  \end{tabular}
+  \caption{The 15 features selected for the parsimonious model (Extension~3). Selected by RF permutation importance on training + validation data (1957--1986).}
+  \label{tab:features}
+\end{table}
+
+\subsection{OOS $R^2$ Comparison}
+
+\noindent\small Delta $=$ parsimonious minus full-feature OOS $R^2$; positive values indicate improvement.
+
+\input{tables/tab_parsimony_delta.tex}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/fig_phase5c_delta_r2.png}
+  \caption{Delta OOS $R^2$ (parsimonious minus full-feature) per model. Positive bars: parsimonious outperforms full-feature.}
+  \label{fig:delta_r2}
+\end{figure}
+
+\subsection{Portfolio Performance (Audited)}
+
+\noindent\small Audited metrics exclude zero-variance prediction months; canonical metrics use all 360 months.
+
+\input{tables/tab_parsimony_portfolio.tex}
+
+\subsection{Degenerate Month Audit}
+\label{app:parsimony_audit}
+
+\noindent\small NN4: 48 degenerate months (312/360 usable); NN5: 216 degenerate months (144/360 usable, 60\% rate); all other models: 0 degenerate months.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/fig_phase5c_degenerate_months.png}
+  \caption{Zero-variance prediction months per model under the parsimonious feature set.}
+  \label{fig:degen_months}
+\end{figure}
+
+% ============================================================
+\section{Data and Pipeline Summary}
+\label{app:pipeline}
+
+\subsection{Data Sources}
+
+\noindent\small CRSP monthly file (1957--2024), Compustat annual/quarterly (6- and 3-month public lags), CCM link table, Fama-French 5-factor data.
+
+\subsection{Feature Engineering}
+
+\noindent\small 94 firm characteristics per GKX Table~A.1; cross-sectional rank normalisation to $[-1,+1]$ applied in \texttt{src/features/feature\_assembler.py}.
+
+\subsection{Computational Environment}
+
+\noindent\small All models trained on CPU; Phase~4 wall-clock time $\approx$\,4.7 hours; predictions cached as Parquet files (\texttt{data/processed/predictions.parquet}).
+
+% ============================================================
+%  BIBLIOGRAPHY  (after appendix, outside body page count)
+% ============================================================
+\newpage
+\bibliographystyle{apalike}
+\bibliography{references}
+
+% ============================================================
+%  END OF DOCUMENT
+% ============================================================
+\end{document}

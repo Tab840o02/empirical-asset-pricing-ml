@@ -1,0 +1,25 @@
+\begin{table}[H]
+\centering
+\caption{Extension~3: OOS $R^2$ comparison: full (94 features) vs.\ parsimonious (15 features), same test window 1987--2016.}
+\label{tab:parsimony}
+\begin{tabular}{lccc}
+\toprule
+ & Full (94 feat.) & Parsimonious (15 feat.) & $\Delta R^2$ \\
+Model &  &  &  \\
+\midrule
+\texttt{enet} & 0.0018 & 0.0009 & -0.0009 \\
+\texttt{gbrt} & -0.0099 & 0.0004 & 0.0103 \\
+\texttt{glm} & 0.0006 & 0.0004 & -0.0002 \\
+\texttt{nn1} & 0.0034 & 0.0016 & -0.0019 \\
+\texttt{nn2} & 0.0018 & 0.0005 & -0.0013 \\
+\texttt{nn3} & 0.0002 & -0.0001 & -0.0004 \\
+\texttt{nn4} & 0.0000 & 0.0003 & 0.0002 \\
+\texttt{nn5} & 0.0001 & -0.0002 & -0.0003 \\
+\texttt{ols3} & 0.0002 & 0.0002 & -0.0001 \\
+\texttt{ols\_all} & 0.0015 & 0.0009 & -0.0006 \\
+\texttt{pcr} & 0.0017 & 0.0007 & -0.0010 \\
+\texttt{pls} & 0.0016 & 0.0009 & -0.0007 \\
+\texttt{rf} & -0.0051 & 0.0005 & 0.0056 \\
+\bottomrule
+\end{tabular}
+\end{table}

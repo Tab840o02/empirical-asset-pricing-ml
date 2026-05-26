@@ -1,0 +1,25 @@
+\begin{table}[H]
+\centering
+\caption{Phase~4 long-short decile portfolio performance (1987--2016). FF5 alpha via HAC Newey-West (12 lags).}
+\label{tab:portfolio}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+Model & Ann. Ret & Ann. Vol & Sharpe & FF5 $\alpha$ & $t_\alpha$ & $p_\alpha$ \\
+\midrule
+\texttt{nn1} & 0.300 & 0.188 & 1.596 & 0.283 & 6.21 & 0.0000 \\
+\texttt{nn2} & 0.293 & 0.194 & 1.510 & 0.280 & 5.92 & 0.0000 \\
+\texttt{pls} & 0.129 & 0.152 & 0.847 & 0.132 & 4.76 & 0.0000 \\
+\texttt{pcr} & 0.132 & 0.163 & 0.805 & 0.141 & 4.42 & 0.0000 \\
+\texttt{ols\_all} & 0.120 & 0.162 & 0.743 & 0.125 & 3.81 & 0.0001 \\
+\texttt{enet} & 0.118 & 0.163 & 0.724 & 0.125 & 3.84 & 0.0001 \\
+\texttt{ols3} & 0.103 & 0.147 & 0.697 & 0.093 & 3.35 & 0.0008 \\
+\texttt{glm} & 0.090 & 0.160 & 0.563 & 0.090 & 3.57 & 0.0004 \\
+\texttt{nn3} & 0.070 & 0.171 & 0.410 & 0.084 & 2.55 & 0.0109 \\
+\texttt{rf} & 0.016 & 0.165 & 0.097 & 0.023 & 0.61 & 0.5414 \\
+\texttt{nn5} & 0.013 & 0.137 & 0.095 & 0.027 & 1.05 & 0.2932 \\
+\texttt{nn4} & 0.014 & 0.157 & 0.088 & 0.016 & 0.55 & 0.5820 \\
+\texttt{gbrt} & 0.008 & 0.176 & 0.043 & 0.011 & 0.30 & 0.7635 \\
+\bottomrule
+\end{tabular}}
+\end{table}
