@@ -44,12 +44,10 @@ PORTFOLIO_CSV    = PROCESSED / "eval_portfolio_perf_latest.csv"
 OUTPUT_PATH      = PROCESSED / "unified_manifest.json"
 
 # Individual run-manifest files in discovery order (most-recent first so the
-# first hit for a model wins).
+# first hit for a model wins). Only the canonical run_manifest.json remains
+# after Phase 4 scope cleanup; Kaggle staging files were removed.
 MANIFEST_FILES = [
     PROCESSED / "run_manifest.json",
-    PROCESSED / "run_manifest_kaggle_nn3.json",
-    PROCESSED / "run_manifest_before_kaggle_nn3_merge.json",
-    ROOT / "artifacts" / "kaggle" / "data_stage" / "data" / "processed" / "run_manifest.json",
 ]
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,9 @@ data/**/*.feather
 data/**/*.py
 data/**/*.json
 
+# Kaggle staging artefacts (large binaries; never re-introduce)
+artifacts/
+
 # ──────────────────────────────────────────────
 # Python
 # ──────────────────────────────────────────────

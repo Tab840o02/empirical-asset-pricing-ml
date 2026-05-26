@@ -181,13 +181,15 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 | GBRT | `tree_models.py` | learning_rate = 0.01 (fixed), max_depth ∈ {1, 2}, subsample = 0.5; selected: lr=0.01, depth=2 |
 | NN1–NN5 | `neural_nets.py` | hidden units per layer = 32, dropout = 0.50, L1 penalty, Adam lr = 0.001; NN1–NN2 were run with **10 seeds**, NN3–NN5 switch to a **3-seed deadline-mode ensemble** |
 
-### Current execution status (2026-05-25)
-- Non-NN models complete and evaluated on 1987–2016.
-- NN1 complete and evaluated (close to GKX NN1 OOS R² benchmark).
-- NN2 complete and evaluated (positive OOS R², but below NN1 and below GKX NN2 benchmark).
-- NN3 complete and merged from Kaggle under the reduced 3-seed deadline-mode setup.
-- NN4 complete and merged from local CPU run under the reduced 3-seed deadline-mode setup.
-- NN5 remains pending under the same reduced 3-seed deadline-mode setup.
+### Current execution status (2026-05-26) — Phase 4 **complete**
+- All non-NN models complete and evaluated on 1987–2016.
+- NN1 complete and evaluated with 10 seeds (GKX-compliant).
+- NN2 complete and evaluated with 10 seeds (GKX-compliant).
+- NN3 complete — 3-seed deadline-mode, Kaggle GPU.
+- NN4 complete — 3-seed deadline-mode, local CPU.
+- NN5 complete — 3-seed deadline-mode, local CPU.
+- Total predictions: 18,165,186 rows (13 models × 1,397,322 stock-months).
+- All evaluation CSVs regenerated: `eval_oos_r2_latest.csv`, `eval_ic_stats_latest.csv`, `eval_portfolio_perf_latest.csv`, `eval_pred_std_latest.csv`.
 
 ### Training Loop (`src/models/train_eval.py`)
 - Iterate month-by-month from 1987-01 to the end of the test window.
@@ -202,7 +204,7 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 `data/processed/predictions.parquet` · `data/processed/portfolio_returns.parquet`
 
 ### ⚠ Bottlenecks
-- **Compute time:** NN training (10 seeds × 5 architectures × ~360 rolling months) is too slow on CPU for the remaining deadline. The project therefore keeps the full 10-seed results already obtained for NN1–NN2, completes NN3 and NN4 with a reduced 3-seed setup (Kaggle/local split), and leaves NN5 pending under the same deadline-mode constraint.
+- **Compute time:** NN training (10 seeds × architectures × ~360 rolling months) is too slow on CPU for the deadline. The project therefore keeps the full 10-seed results for NN1–NN2, and completes NN3–NN5 with a reduced 3-seed setup. Phase 4 training is now complete.
 - **NN reproducibility:** Set seeds at the top of every training run: `np.random.seed(seed)`, `tf.random.set_seed(seed)`, `random.seed(seed)`. Log all seeds in a run manifest (`data/processed/run_manifest.json`).
 - **GBRT memory:** Scikit-learn's `GradientBoostingRegressor` is slow for large N. Use `lightgbm.LGBMRegressor` as a drop-in replacement with identical interface.
 - **Target variable:** Predict excess return (raw return minus risk-free rate), not total return. Use the 1-month T-bill rate from the FF factors file.

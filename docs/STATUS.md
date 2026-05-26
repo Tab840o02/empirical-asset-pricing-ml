@@ -1,10 +1,10 @@
 # Project Status
 
-> Last updated: 2026-05-25 (Phase 4 — NN3 and NN4 complete; NN5 pending in 3-seed deadline mode)
+> Last updated: 2026-05-26 (Phase 4 complete — all 13 models trained and evaluated)
 
 ---
 
-## Current Phase: 4 — Model Training & Evaluation (NN1–NN4 complete, NN5 pending)
+## Current Phase: 4 Complete — Model Training & Evaluation (all 13 models done)
 
 | Phase | Name | Status | Notes |
 |-------|------|--------|-------|
@@ -12,7 +12,7 @@
 | 1 | WRDS data extraction | ✅ Done | All raw tables downloaded, audited |
 | 2 | Data cleaning & CCM merge | ✅ Done | merged_panel 2.5M rows × 118 cols, 11/11 tests ✅ |
 | 3 | Feature engineering (94 characteristics) | ✅ Done | **94/94** characteristics implemented including `hire`, `ear` |
-| 4 | Model training & evaluation | 🔄 In progress | 12 models evaluated (8 non-NN + NN1 + NN2 + NN3 + NN4), 16.77M predictions, 1987–2016; only NN5 pending under reduced 3-seed deadline mode |
+| 4 | Model training & evaluation | ✅ **Complete** | All 13 models evaluated (8 non-NN + NN1 + NN2 + NN3 + NN4 + NN5), 18,165,186 predictions, 1987–2016 |
 | 5a | Extension — Post-2020 OOS | 🔲 Not started | — |
 | 5b | Extension — Net of transaction costs | 🔲 Not started | — |
 | 5c | Extension — Feature parsimony | 🔲 Not started | — |
@@ -27,11 +27,11 @@
 
 ### Training scheme
 - Expanding window: train on all months < Jan Y, predict all months in year Y
-- Test window: 1987–2016 (360 months, **16,767,864** stock-month predictions)
+- Test window: 1987–2016 (360 months, **18,165,186** stock-month predictions)
 - Features panel: 2,431,956 rows × **94 features** (all 94 GKX characteristics)
 - Hyperparameter selection: train 1957–1974, validate 1975–1986
 - Selected hyperparams: pcr_n=50, pls_n=10, enet_α=0.001 l1=0.1, glm_α=0.001, rf_depth=2, gbrt_lr=0.01 depth=2
-- Runtime: ~84 min full non-NN run on CPU + NN1 and NN2 full 10-seed expanding-window runs + NN3 Kaggle run (23,331.6s) + NN4 local run (20,003s)
+- Runtime: ~84 min full non-NN run on CPU + NN1 and NN2 full 10-seed expanding-window runs + NN3 Kaggle run (23,331.6s) + NN4 local run (20,003s) + NN5 local run (38,665.7s)
 
 ### Pooled OOS R² vs GKX Table 3 (1987–2016)
 
@@ -49,7 +49,7 @@
 | NN2 | +0.178% | +0.40% | ⚠️ Positive, below GKX and below NN1 |
 | NN3 | +0.023% | +0.41% | ⚠️ Completed, far below paper |
 | NN4 | +0.003% | +0.45% | ❌ Completed, near-zero OOS R² |
-| NN5 | not yet run | +0.55% | ⏳ Pending (3-seed deadline-mode run) |
+| NN5 | +0.007% | +0.55% | ❌ Completed, near-zero OOS R² (3-seed deadline mode) |
 
 > **Tree finding:** The tree-fix pass validated pipeline logic. Forcing RF to search deeper trees selected `max_depth=2` but worsened RF OOS R². Restricting GBRT to `lr=0.01` improved OOS R² from `−3.80%` to `−0.99%` by reducing prediction variance.
 
@@ -67,13 +67,16 @@
 | GLM | 0.75% | 9.0% | 0.56 | 9.0% | 3.57 |
 | NN1 | **2.50%** | **30.0%** | **1.60** | **28.3%** | **6.21** |
 | NN2 | 2.44% | 29.3% | 1.51 | 28.0% | 5.92 |
+| NN3 | 0.58% | 7.0% | 0.41 | 8.4% | 2.55 |
+| NN4 | 0.11% | 1.4% | 0.09 | 1.6% | 0.55 (NS) |
+| NN5 | 0.11% | 1.3% | 0.10 | 2.7% | 1.05 (NS) |
 | RF | 0.13% | 1.6% | 0.10 | 2.3% | 0.61 (NS) |
 | GBRT | 0.06% | 0.8% | 0.04 | 1.1% | 0.30 (NS) |
 
 ### Open issues
 
-1. **Tree models remain below paper** — both RF and GBRT OOS R² are negative and portfolio Sharpes are well below GKX; further tree work is optional
-2. **Neural queue** — NN1 and NN2 complete under the original 10-seed setup; NN3 (Kaggle) and NN4 (local) are complete under the reduced 3-seed deadline-mode setup; NN5 remains pending
+1. **Tree models remain below paper** — both RF and GBRT OOS R² are negative and portfolio Sharpes are well below GKX; root cause unresolved; optional to investigate in Phase 5
+2. **NN3–NN5 non-compliant** — trained with 3 seeds vs GKX’s 10; OOS R² near-zero; results for these models are directionally interesting but not directly comparable to GKX
 
 ---
 

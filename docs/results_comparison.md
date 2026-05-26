@@ -1,12 +1,12 @@
 # GKX (2020) Replication — Results vs Paper Comparison
 
-> **Run date:** 2026-05-25  
+> **Run date:** 2026-05-26 (Phase 4 complete — all 13 models trained)  
 > **Features:** **94/94** GKX characteristics (all implemented)  
 > **Test window:** 1987-01 → 2016-12 (360 months, matching GKX exactly)  
 > **Training scheme:** Expanding window, hyperparams selected on 1957–1974 train / 1975–1986 val  
-> **Models trained:** OLS-3, OLS-all, PCR, PLS, ElasticNet, GLM, RF, GBRT, NN1, NN2, NN3, NN4  
-> **Total predictions:** 16,767,864 stock-month observations  
-> **Runtime:** ~84 min full non-NN run + NN1/NN2 full expanding-window runs + NN3 (Kaggle, 23,331.6s) + NN4 (local, 20,003s)
+> **Models trained:** OLS-3, OLS-all, PCR, PLS, ElasticNet, GLM, RF, GBRT, NN1, NN2, NN3, NN4, NN5  
+> **Total predictions:** 18,165,186 stock-month observations  
+> **Runtime:** ~84 min full non-NN run + NN1/NN2 full expanding-window runs + NN3 (Kaggle, 23,331.6s) + NN4 (local, 20,003s) + NN5 (local, 38,665.7s)
 >
 > ⚠️ **Replication status: PARTIAL.** This document reports a partial replication with several unresolved comparability gaps. See Section 0 for the full methodological deviation register before interpreting any results.
 
@@ -28,9 +28,9 @@ GKX (2020) trains each neural network model (NN1–NN5) as an ensemble of **10 i
 | NN2 | 10 (seeds 0–9) | 10 | ✅ Compliant |
 | NN3 | 3 (seeds 0–2) | 10 | ❌ Deadline mode — 7 seeds missing |
 | NN4 | 3 (seeds 0–2) | 10 | ❌ Deadline mode — 7 seeds missing |
-| NN5 | Not run | 10 | ❌ Excluded from analysis |
+| NN5 | 3 (seeds 0–2) | 10 | ❌ Deadline mode — 7 seeds missing |
 
-**Inferential consequence:** A 3-seed ensemble has substantially higher variance than a 10-seed ensemble. The reported OOS R² for NN3 (+0.023%) and NN4 (+0.003%) cannot be compared on equal footing against GKX's 10-seed results or against our own NN1/NN2 results. Any conclusion that "deeper networks underperform shallower networks in this dataset" is not supported at the current seed count — the observed deterioration could partially reflect seed-variance rather than a genuine architectural effect. **No cross-model ranking involving NN3 or NN4 should be treated as conclusive.**
+**Inferential consequence:** A 3-seed ensemble has substantially higher variance than a 10-seed ensemble. The reported OOS R² for NN3 (+0.023%), NN4 (+0.003%), and NN5 (+0.007%) cannot be compared on equal footing against GKX's 10-seed results or against our own NN1/NN2 results. Any conclusion that "deeper networks underperform shallower networks in this dataset" is not supported at the current seed count — the observed deterioration could partially reflect seed-variance rather than a genuine architectural effect. **No cross-model ranking involving NN3, NN4, or NN5 should be treated as conclusive.**
 
 ### 0.2 Tree Model Failure — Open Divergence (P1 — Result Unreliable)
 
@@ -80,6 +80,7 @@ NN1 and NN2 produce L/S monthly returns of 2.50% and 2.44% respectively, versus 
 | "✅ Close to paper" (NN1 OOS R²) | OOS R² close (+0.344% vs +0.39%); portfolio return 6× GKX; 10-seed protocol compliant |
 | "⚠️ Positive but below expectation" (NN2) | 10-seed compliant; OOS R² below GKX and below NN1; portfolio magnitude unexplained |
 | "⚠️ Completed with reduced-rigor setup" (NN3/NN4) | 3-seed non-compliant ensembles; results not comparable to GKX or to NN1/NN2; reported for transparency only |
+| "⏳ Pending" (NN5) | Now complete; 3-seed non-compliant; OOS R² +0.007%, Sharpe 0.10, alpha not significant; consistent with NN4 pattern |
 | "❌ Still not replicated" (tree models) | Open divergence; root cause unresolved; excluded from cross-model ranking conclusions |
 
 ---
@@ -92,7 +93,7 @@ NN1 and NN2 produce L/S monthly returns of 2.50% and 2.44% respectively, versus 
 | GBRT implementation | Not specified (likely sklearn GBRT) | LightGBM `LGBMRegressor` |
 | Portfolio weighting | Value-weighted (lagged market cap) | Value-weighted (lagged `me_lag1`) |
 | Portfolio months covered | 360 (1987–2016) | **360** — date-normalization fix applied to `portfolio.py` |
-| NN models | NN1–NN5 (ensemble of 10 seeds each) | NN1 and NN2 complete with 10 seeds; NN3 and NN4 complete with a 3-seed deadline-mode ensemble; NN5 pending |
+| NN models | NN1–NN5 (ensemble of 10 seeds each) | NN1 and NN2 complete with 10 seeds (GKX-compliant); NN3, NN4, and NN5 complete with a 3-seed deadline-mode ensemble (not GKX-compliant) |
 
 ---
 
@@ -116,7 +117,7 @@ $$R^2_{\text{OOS}} = 1 - \frac{\sum_t (r_{i,t} - \hat{r}_{i,t})^2}{\sum_t (r_{i,
 | NN2 | +0.178% | +0.40% | −0.222 pp | ⚠️ Positive, below GKX and below NN1 |
 | NN3 | +0.023% | +0.41% | −0.387 pp | ⚠️ Positive, far below GKX |
 | NN4 | +0.003% | +0.45% | −0.447 pp | ❌ Near-zero OOS R² |
-| NN5 | *not run* | +0.55% | — | ⏳ Pending |
+| NN5 | +0.007% | +0.55% | −0.543 pp | ❌ Near-zero OOS R² |
 
 **Key observations:**
 - All **linear models** match GKX within ±0.09 pp. **GLM** reproduces the paper's +0.06% exactly.
@@ -126,7 +127,7 @@ $$R^2_{\text{OOS}} = 1 - \frac{\sum_t (r_{i,t} - \hat{r}_{i,t})^2}{\sum_t (r_{i,
 - **NN2** is positive (+0.178%) but underperforms both GKX NN2 (+0.40%) and our NN1, so added depth did not improve OOS R² in this run.
 - **NN3** completed but is materially weaker than GKX and weaker than NN1/NN2.
 - **NN4** completed with near-zero OOS R², indicating additional depth did not help this pipeline.
-- **NN5** remains pending and will be run under the same 3-seed deadline-mode setup.
+- **NN5** completed under the same 3-seed deadline-mode setup. OOS R² = +0.007%, near-zero — consistent with NN4 pattern. Portfolio alpha not statistically significant (t = 1.05).
 
 ---
 
@@ -149,10 +150,11 @@ GKX reports rank IC in Figure 1 of the paper (not Table 3); approximate paper va
 | NN2 | 0.0488 | 0.0806 | 0.6052 | 0.04–0.06 |
 | NN3 | 0.0169 | 0.0715 | 0.2364 | 0.04–0.06 |
 | NN4 | 0.0291 | 0.0491 | 0.5931 | 0.04–0.06 |
+| NN5 | 0.0364 | 0.0522 | 0.6973 | 0.04–0.06 |
 | RF | 0.0213 | 0.0728 | 0.2922 | 0.03–0.05 |
 | GBRT | 0.0300 | 0.0662 | 0.4535 | 0.04–0.06 |
 
-**Key observation:** All models still have **positive rank IC**, but NN3 rank signal is weak (IC 0.0169), while NN4 rank quality improves versus NN3 but still does not translate into useful OOS R².
+**Key observation:** All models have **positive rank IC**. NN3 rank signal is weakest (IC 0.0169). NN4 and NN5 recover partially (IC 0.0291 and 0.0364) but do not translate into useful OOS R² (+0.003% and +0.007%).
 
 ---
 
@@ -175,6 +177,7 @@ Long P10 − Short P1, value-weighted using lagged market cap. FF5 alpha from Ne
 | NN2 | 2.44% | 29.3% | 1.51 | 27.99% | 5.92 | <0.001 |
 | NN3 | 0.58% | 7.0% | 0.41 | 8.39% | 2.55 | 0.011 |
 | NN4 | 0.11% | 1.4% | 0.09 | 1.63% | 0.55 | 0.582 |
+| NN5 | 0.11% | 1.3% | 0.10 | 2.71% | 1.05 | 0.293 |
 | RF | 0.13% | 1.6% | 0.10 | 2.27% | 0.61 | 0.541 |
 | GBRT | 0.06% | 0.8% | 0.04 | 1.10% | 0.30 | 0.764 |
 
@@ -214,6 +217,7 @@ Values from GKX (2020) Table 3. Portfolio is long-short, value-weighted, 1987–
 | NN2 | 2.44% | ~0.40% | 6.1× | 1.51 | ~0.60 | ❌ Much higher |
 | NN3 | 0.58% | ~0.41% | 1.4× | 0.41 | ~0.61 | ⚠️ Lower Sharpe |
 | NN4 | 0.11% | ~0.45% | 0.2× | 0.09 | ~0.70 | ❌ Much lower |
+| NN5 | 0.11% | ~0.55% | 0.2× | 0.10 | ~0.77 | ❌ Much lower |
 | RF | 0.13% | ~0.39% | 0.3× | 0.10 | ~0.49 | ❌ Lower |
 | GBRT | 0.06% | ~0.34% | 0.2× | 0.04 | ~0.42 | ❌ Much lower |
 
@@ -233,7 +237,7 @@ Values from GKX (2020) Table 3. Portfolio is long-short, value-weighted, 1987–
 
 1. **Depth beyond NN2 is not helping in this replication:** NN3 is weak (+0.023% OOS R²) and NN4 is near-zero (+0.003%), both well below GKX's monotonic NN gains.
 
-2. **Risk-adjusted performance degrades with depth:** NN3 Sharpe falls to 0.41 and NN4 Sharpe to 0.09, versus NN1 1.60 and NN2 1.51.
+2. **Risk-adjusted performance deteriorates with depth past NN2:** NN3 Sharpe = 0.41, NN4 = 0.09, NN5 = 0.10, versus NN1 1.60 and NN2 1.51. The pattern is consistent across OOS R² and portfolio Sharpe: deeper networks do not improve performance in this 3-seed deadline-mode replication.
 
 ---
 
@@ -243,7 +247,7 @@ Values from GKX (2020) Table 3. Portfolio is long-short, value-weighted, 1987–
 |---|---|---|---|
 | Linear (OLS, PCR, PLS, ENet, GLM) | +0.06% to +0.25% | +0.025% to +0.180% | Small (≤0.09 pp) |
 | Tree (RF, GBRT) | +0.34% to +0.39% | −0.99% to −0.51% | **Still large (>0.8 pp)** |
-| Neural (NN1–NN5) | +0.37% to +0.44% | NN1: +0.344%, NN2: +0.178%, NN3: +0.023%, NN4: +0.003%; NN5 pending (3-seed) | Mixed, deteriorating with depth |
+| Neural (NN1–NN5) | +0.37% to +0.55% | NN1: +0.344%, NN2: +0.178%, NN3: +0.023%, NN4: +0.003%, NN5: +0.007% | Mixed; NN1/NN2 partial match; NN3–NN5 near-zero (3-seed, non-compliant) |
 
 ---
 
@@ -261,6 +265,7 @@ Extreme dispersion in tree predictions inflates MSE without improving rank corre
 | NN2 | 0.0050 |
 | NN3 | 0.0017 |
 | NN4 | 0.0019 |
+| NN5 | 0.0022 |
 | PCR | 0.0100 |
 | PLS | 0.0113 |
 | RF | 0.0112 |
@@ -298,9 +303,8 @@ GBRT no longer shows the earlier extreme high-dispersion behavior, which validat
 | Tree models OOS R² | ❌ **Open divergence** — both RF and GBRT negative; root cause unresolved; excluded from cross-model ranking |
 | Tree model L/S Sharpe | ❌ **Not interpretable** — Sharpe 0.04–0.10 vs GKX ~0.42–0.49; excluded from conclusions pending resolution |
 | NN1 OOS R² | ⚠️ **Close partial match** — +0.344% vs +0.39%; 10-seed compliant; portfolio 6× GKX (§0.8) |
-| NN2 OOS R² | ⚠️ **Positive, non-compliant match** — +0.178% vs GKX +0.40%; 10-seed compliant; magnitude below GKX |
-| NN3/NN4 | ❌ **Non-compliant ensembles** — 3 seeds vs GKX 10; results reported for transparency only; not comparable to GKX or to NN1/NN2 |
-| NN5 | ❌ **Not run** — excluded from all analysis |
+| NN2 OOS R² | ⚠️ **Positive partial match** — +0.178% vs GKX +0.40%; 10-seed compliant; magnitude below GKX |
+| NN3/NN4/NN5 | ❌ **Non-compliant ensembles** — 3 seeds vs GKX 10; results reported for transparency only; not comparable to GKX or to NN1/NN2 |
 | Portfolio coverage | ✅ **Fixed** — 360/360 months after date-normalization fix in `portfolio.py` (§0.6) |
 | Linear model L/S | ❌ **Unexplained upward divergence** — 2.7–4.4× GKX after fix; cause not isolated |
 | NN1/NN2 L/S | ❌ **Large unexplained divergence** — ~6× GKX monthly return despite close OOS R² |
@@ -315,7 +319,7 @@ GBRT no longer shows the earlier extreme high-dispersion behavior, which validat
 
 3. **Tree-spec mismatch remains**: The latest tree rerun removed the stump-only RF explanation and fixed the GBRT learning-rate pathology, yet both tree models remain negative. Any further tree work should be treated as a broader specification exercise, not a quick unblocker before NN training.
 
-4. **Neural queue mostly complete**: NN1 and NN2 are complete under the original 10-seed setup; NN3 (Kaggle) and NN4 (local) are now complete under 3 seeds; only NN5 remains pending under the same deadline-mode protocol.
+4. **Neural queue complete**: NN1 and NN2 complete under the original 10-seed setup; NN3 (Kaggle), NN4 (local), and NN5 (local) all complete under 3-seed deadline-mode. Phase 4 training is done.
 ---
 
 ## 9. Next Steps
@@ -327,8 +331,8 @@ GBRT no longer shows the earlier extreme high-dispersion behavior, which validat
 - [x] Train NN2 (10 seeds) and evaluate
 - [x] Train NN3 (3 seeds, Kaggle GPU deadline mode) and merge outputs safely
 - [x] Train NN4 (3 seeds, local CPU deadline mode) and merge outputs safely
-- [ ] Train NN5 (3 seeds, deadline mode) → complete Phase 4
-- [ ] Revisit tree-model specification (optional — not a blocker for NNs)
+- [x] Train NN5 (3 seeds, deadline mode) → Phase 4 complete
+- [ ] Revisit tree-model specification (optional — not a blocker for Phase 5)
 - [ ] Phase 5a: Post-2020 OOS extension (`src/extensions/post2020_eval.py`)
 - [ ] Phase 5b: Net of transaction costs (`src/extensions/transaction_costs.py`)
 - [ ] Phase 5c: Feature parsimony (`src/extensions/feature_parsimony.py`)

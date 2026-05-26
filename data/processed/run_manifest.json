@@ -1,9 +1,9 @@
 {
-  "run_timestamp": "2026-05-24T21:32:57.945256+00:00",
+  "run_timestamp": "2026-05-25T10:56:29.994295+00:00",
   "test_start": "1987-01-01",
   "test_end": "2016-12-31",
   "models": [
-    "nn4"
+    "nn5"
   ],
   "append": true,
   "resume": true,
@@ -14,183 +14,183 @@
     "1987": {
       "n_train": 717935,
       "n_test": 48803,
-      "elapsed_s": 333.2,
+      "elapsed_s": 407.4,
       "status": "completed"
     },
     "1988": {
       "n_train": 766738,
       "n_test": 48065,
-      "elapsed_s": 350.9,
+      "elapsed_s": 527.0,
       "status": "completed"
     },
     "1989": {
       "n_train": 814803,
       "n_test": 46322,
-      "elapsed_s": 351.8,
+      "elapsed_s": 482.7,
       "status": "completed"
     },
     "1990": {
       "n_train": 861125,
       "n_test": 45430,
-      "elapsed_s": 442.9,
+      "elapsed_s": 502.7,
       "status": "completed"
     },
     "1991": {
       "n_train": 906555,
       "n_test": 44922,
-      "elapsed_s": 446.2,
+      "elapsed_s": 512.2,
       "status": "completed"
     },
     "1992": {
       "n_train": 951477,
       "n_test": 46431,
-      "elapsed_s": 484.3,
+      "elapsed_s": 401.8,
       "status": "completed"
     },
     "1993": {
       "n_train": 997908,
       "n_test": 49796,
-      "elapsed_s": 527.9,
+      "elapsed_s": 390.1,
       "status": "completed"
     },
     "1994": {
       "n_train": 1047704,
       "n_test": 54705,
-      "elapsed_s": 541.2,
+      "elapsed_s": 405.9,
       "status": "completed"
     },
     "1995": {
       "n_train": 1102409,
       "n_test": 56473,
-      "elapsed_s": 670.7,
+      "elapsed_s": 598.0,
       "status": "completed"
     },
     "1996": {
       "n_train": 1158882,
       "n_test": 60185,
-      "elapsed_s": 936.4,
+      "elapsed_s": 625.7,
       "status": "completed"
     },
     "1997": {
       "n_train": 1219067,
       "n_test": 62433,
-      "elapsed_s": 1255.2,
+      "elapsed_s": 627.2,
       "status": "completed"
     },
     "1998": {
       "n_train": 1281500,
       "n_test": 61827,
-      "elapsed_s": 514.4,
+      "elapsed_s": 733.0,
       "status": "completed"
     },
     "1999": {
       "n_train": 1343327,
       "n_test": 58908,
-      "elapsed_s": 564.8,
+      "elapsed_s": 774.8,
       "status": "completed"
     },
     "2000": {
       "n_train": 1402235,
       "n_test": 57232,
-      "elapsed_s": 559.8,
+      "elapsed_s": 811.3,
       "status": "completed"
     },
     "2001": {
       "n_train": 1459467,
       "n_test": 52629,
-      "elapsed_s": 549.2,
+      "elapsed_s": 862.1,
       "status": "completed"
     },
     "2002": {
       "n_train": 1512096,
       "n_test": 48451,
-      "elapsed_s": 589.2,
+      "elapsed_s": 1002.2,
       "status": "completed"
     },
     "2003": {
       "n_train": 1560547,
       "n_test": 45637,
-      "elapsed_s": 622.9,
+      "elapsed_s": 987.4,
       "status": "completed"
     },
     "2004": {
       "n_train": 1606184,
       "n_test": 44501,
-      "elapsed_s": 614.5,
+      "elapsed_s": 1049.1,
       "status": "completed"
     },
     "2005": {
       "n_train": 1650685,
       "n_test": 44120,
-      "elapsed_s": 737.6,
+      "elapsed_s": 912.8,
       "status": "completed"
     },
     "2006": {
       "n_train": 1694805,
       "n_test": 43760,
-      "elapsed_s": 662.2,
+      "elapsed_s": 925.3,
       "status": "completed"
     },
     "2007": {
       "n_train": 1738565,
       "n_test": 42950,
-      "elapsed_s": 794.3,
+      "elapsed_s": 951.8,
       "status": "completed"
     },
     "2008": {
       "n_train": 1781515,
       "n_test": 41474,
-      "elapsed_s": 731.8,
+      "elapsed_s": 853.2,
       "status": "completed"
     },
     "2009": {
       "n_train": 1822989,
       "n_test": 38823,
-      "elapsed_s": 753.7,
+      "elapsed_s": 967.3,
       "status": "completed"
     },
     "2010": {
       "n_train": 1861812,
       "n_test": 37537,
-      "elapsed_s": 875.0,
+      "elapsed_s": 995.4,
       "status": "completed"
     },
     "2011": {
       "n_train": 1899349,
       "n_test": 36257,
-      "elapsed_s": 744.6,
+      "elapsed_s": 8021.2,
       "status": "completed"
     },
     "2012": {
       "n_train": 1935606,
       "n_test": 35364,
-      "elapsed_s": 838.1,
+      "elapsed_s": 1154.9,
       "status": "completed"
     },
     "2013": {
       "n_train": 1970970,
       "n_test": 35091,
-      "elapsed_s": 874.5,
+      "elapsed_s": 918.2,
       "status": "completed"
     },
     "2014": {
       "n_train": 2006061,
       "n_test": 36174,
-      "elapsed_s": 843.9,
+      "elapsed_s": 1245.7,
       "status": "completed"
     },
     "2015": {
       "n_train": 2042235,
       "n_test": 36800,
-      "elapsed_s": 827.3,
+      "elapsed_s": 1356.4,
       "status": "completed"
     },
     "2016": {
       "n_train": 2079035,
       "n_test": 36222,
-      "elapsed_s": 833.4,
+      "elapsed_s": 8503.2,
       "status": "completed"
     }
   },
-  "total_elapsed_s": 20003.0
+  "total_elapsed_s": 38665.7
 }
