@@ -512,6 +512,40 @@ def download_ff_factors(output_dir: Path = RAW_DIR) -> Path:
     return out
 
 
+def download_phase5a_extension(
+    conn,
+    crsp_start_date: str = "2017-01-01",
+    compustat_annual_start: str = "2017-01-01",
+    compustat_quarterly_start: str = "2016-01-01",
+    daily_start_year: int = 2017,
+    output_dir: Path = RAW_DIR,
+) -> pd.Timestamp:
+    """
+    Download the post-2016 extension tables needed for Phase 5a.
+
+    This is a convenience wrapper around the existing table-specific download
+    helpers.  It keeps the extension pull explicit without changing the
+    canonical Phase 1 workflow.
+    """
+    latest = get_latest_crsp_date(conn)
+    log.info("Downloading Phase 5a extension tables through %s …", latest.date())
+
+    download_crsp_monthly(conn, start_date=crsp_start_date, output_dir=output_dir)
+    download_crsp_names(conn, output_dir=output_dir)
+    download_crsp_delistings(conn, output_dir=output_dir)
+    download_crsp_daily_index(conn, start_date=crsp_start_date, output_dir=output_dir)
+    download_crsp_daily_range(conn, start_year=daily_start_year, end_year=latest.year, output_dir=output_dir)
+
+    download_compustat_annual(conn, start_date=compustat_annual_start, output_dir=output_dir)
+    download_compustat_quarterly(conn, start_date=compustat_quarterly_start, output_dir=output_dir)
+    download_compustat_security(conn, output_dir=output_dir)
+    download_compustat_company(conn, output_dir=output_dir)
+    download_ff_factors(output_dir=output_dir)
+
+    log.info("Phase 5a extension downloads complete.")
+    return latest
+
+
 # ---------------------------------------------------------------------------
 # Utility
 # ---------------------------------------------------------------------------

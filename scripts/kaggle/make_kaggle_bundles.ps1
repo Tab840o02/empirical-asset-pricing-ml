@@ -25,6 +25,8 @@ $codeTargets = @(
     "docs",
     "requirements.txt",
     "README.md",
+    "scripts/run_phase5c.py",
+    "scripts/kaggle/kaggle_phase5c_runner.py",
     "scripts/kaggle/kaggle_nn_runner.py",
     "scripts/kaggle/kaggle_bootstrap.py"
 )

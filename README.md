@@ -12,8 +12,11 @@ dominate linear models in out-of-sample prediction. Data is sourced from WRDS
 (CRSP + Compustat); factor benchmarks use Kenneth French's data library (free
 access).
 
-**Phase 4 (replication) is complete.** All 13 models are trained and evaluated on
-the 1987–2016 test window (18,165,186 stock-month predictions). See
+**Phase 4 (replication) is complete and Phase 5a run execution is complete.**
+All 13 models are trained and evaluated on the 1987–2016 test window
+(18,165,186 stock-month predictions), and the post-2020 extension manifest run
+covers 2017–2024 for all 13 models. Phase 5c (feature parsimony) remains in
+progress. See
 [docs/results_comparison.md](docs/results_comparison.md) for the full comparison
 against the paper and a register of methodological deviations.
 

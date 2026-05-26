@@ -1,7 +1,7 @@
 # Project Plan — Empirical Asset Pricing via Machine Learning
 ### Replication of Gu, Kelly & Xiu (2020) + Three Custom Extensions
 
-> **Last updated:** 2026-05-23  
+> **Last updated:** 2026-05-26  
 > **Data source:** WRDS (all team members have accounts)  
 > **ML framework:** Python · TensorFlow/Keras · scikit-learn · LightGBM  
 > **Test window extended to:** most recent available WRDS month (~2026)
@@ -181,7 +181,7 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 | GBRT | `tree_models.py` | learning_rate = 0.01 (fixed), max_depth ∈ {1, 2}, subsample = 0.5; selected: lr=0.01, depth=2 |
 | NN1–NN5 | `neural_nets.py` | hidden units per layer = 32, dropout = 0.50, L1 penalty, Adam lr = 0.001; NN1–NN2 were run with **10 seeds**, NN3–NN5 switch to a **3-seed deadline-mode ensemble** |
 
-### Current execution status (2026-05-26) — Phase 4 **complete**
+### Current execution status (2026-05-26) — Phase 4 **complete**, Phase 5a **complete**, Phase 5b **implemented**, Phase 5c **in progress**
 - All non-NN models complete and evaluated on 1987–2016.
 - NN1 complete and evaluated with 10 seeds (GKX-compliant).
 - NN2 complete and evaluated with 10 seeds (GKX-compliant).
@@ -190,6 +190,9 @@ Stocks with missing values for a given characteristic are assigned 0 (the cross-
 - NN5 complete — 3-seed deadline-mode, local CPU.
 - Total predictions: 18,165,186 rows (13 models × 1,397,322 stock-months).
 - All evaluation CSVs regenerated: `eval_oos_r2_latest.csv`, `eval_ic_stats_latest.csv`, `eval_portfolio_perf_latest.csv`, `eval_pred_std_latest.csv`.
+- Extension manifest run complete for post-2020 window (2017-01 to 2024-11) with all 13 models: `run_manifest_ext.json` timestamp `2026-05-26T00:46:31.529659+00:00`.
+- Phase 5b first-pass outputs generated: `eval_tc_monthly.csv` and `eval_tc_summary.csv` via `scripts/run_phase5b.py`.
+- Phase 5c artifacts and runners are prepared; final parsimony evaluation output generation is still pending.
 
 ### Training Loop (`src/models/train_eval.py`)
 - Iterate month-by-month from 1987-01 to the end of the test window.
@@ -418,7 +421,7 @@ report/
 | Non-US equities | **Out of scope** |
 | TC data source | Amihud (2002) as primary; fixed bps schedule as robustness check |
 | NN framework | TensorFlow / Keras (matches GKX original implementation) |
-| NN ensemble | Mixed due to deadline constraints: NN1–NN2 use 10 seeds, NN3–NN4 use 3 seeds, NN5 pending (target 3 seeds) |
+| NN ensemble | Mixed due to deadline constraints: NN1–NN2 use 10 seeds, NN3–NN5 use 3 seeds |
 | Feature parsimony shortlist | Determined algorithmically (Phase 5 methodology) — not hard-coded |
 | WRDS credentials | Read from `WRDS_USER` environment variable; never commit credentials |
 | Compute | Run NN training on GPU if available; use LightGBM for GBRT |
@@ -432,7 +435,10 @@ Run these checks at the end of each phase before moving to the next.
 - [ ] **Phase 2 — Look-ahead guard:** For all December fiscal-year Compustat rows, assert `feature_month >= datadate + 6 months`. Implement as a pytest in `tests/test_no_lookahead.py`.
 - [ ] **Phase 3 — IC sanity:** Monthly average IC for `mom12m`, `bm`, `ep` should be positive and ≈ 0.02–0.05. A negative mean IC indicates a sign error in construction.
 - [ ] **Phase 3 — Coverage:** Feature coverage heatmap shows no characteristic has < 50% non-missing after 1980.
-- [ ] **Phase 4 — Replication:** NN3 and NN4 are now complete but materially below GKX benchmarks; run NN5 and reassess whether any deep model beyond NN2 approaches GKX's reported NN gains.
+- [x] **Phase 4 — Replication:** all NN1–NN5 runs complete (NN1/NN2 10-seed, NN3/NN4/NN5 3-seed deadline mode) and canonical evaluation CSVs regenerated.
+- [x] **Phase 5a — Post-2020 OOS run:** extension manifest indicates completion for 2017–2024 with all 13 models (`run_manifest_ext.json`).
+- [x] **Phase 5b — Transaction-cost extension implementation:** generated cost-aware monthly and summary outputs (`eval_tc_monthly.csv`, `eval_tc_summary.csv`) using fixed-schedule and Amihud-calibrated spread methods.
+- [ ] **Phase 5c — Feature parsimony completion:** finalize `predictions_parsimony.parquet` and extension evaluation summary outputs.
 - [ ] **Extension 1 — Rolling R²:** Compute 12-month rolling OOS-R²; verify it does not go below −1% for more than 3 consecutive months for the best model.
 - [ ] **Extension 2 — Turnover face-validity:** Monthly turnover for `mom1m`-weighted portfolio should be materially higher than for `bm`-weighted portfolio (momentum rebalances frequently; value does not).
 - [ ] **Extension 3 — Parsimony cost:** $\Delta R^2$ (full − parsimonious) should be ≤ 30% of full-model R². If larger, revisit the feature selection methodology.

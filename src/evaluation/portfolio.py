@@ -122,6 +122,15 @@ def build_portfolios(
     return port.sort_values(["model", "date", "decile"]).reset_index(drop=True)
 
 
+def build_decile_portfolios(
+    preds_df: pd.DataFrame,
+    crsp_me: pd.DataFrame,
+    n_deciles: int = _DEFAULT_N_DECILES,
+) -> pd.DataFrame:
+    """Backward-compatible alias for build_portfolios()."""
+    return build_portfolios(preds_df, crsp_me, n_deciles=n_deciles)
+
+
 # ---------------------------------------------------------------------------
 # Long-short returns
 # ---------------------------------------------------------------------------
@@ -160,6 +169,7 @@ def ff_alpha(
     ls_series: pd.Series,
     ff_df: pd.DataFrame,
     model: str = "ff5",
+    nw_lags: int = 12,
 ) -> dict:
     """
     Regress monthly L/S returns on Fama-French factors to compute alpha.
@@ -199,10 +209,9 @@ def ff_alpha(
         raise ValueError(f"Unknown factor model: {model!r}. Use 'ff3' or 'ff5'.")
 
     X = sm.add_constant(merged[factors].values)
-    # Newey-West (HAC) standard errors with 12 lags — standard for monthly
-    # portfolio return regressions; corrects for heteroskedasticity AND
-    # autocorrelation (GKX use Newey-West throughout).
-    res = sm.OLS(y, X).fit(cov_type="HAC", cov_kwds={"maxlags": 12})
+    # Newey-West (HAC) standard errors for monthly portfolio return
+    # regressions; corrects for heteroskedasticity and autocorrelation.
+    res = sm.OLS(y, X).fit(cov_type="HAC", cov_kwds={"maxlags": nw_lags})
 
     alpha_monthly = res.params[0]
     t_alpha = res.tvalues[0]
