@@ -108,6 +108,8 @@ Machine learning offers something classical factor models cannot: the flexibilit
 % ============================================================
 %  SECTION 2 — REPLICATION
 % ============================================================
+\begingroup
+\setstretch{1.02}
 \section{Replication}
 
 \subsection{Setup}
@@ -181,6 +183,8 @@ The null finding on rank changes is itself economically informative: the relativ
 \textbf{Findings.} Linear models retain 50--75\% of their full-set OOS $R^2$ with one-sixth of the features, suggesting the marginal predictive content of the remaining 79 characteristics is limited for linear methods. NN1 retains 0.157\% vs.\ 0.344\% with all features---a meaningful but not catastrophic reduction. Most strikingly, GBRT and RF \textit{improve} with fewer features (GBRT: $-0.990\% \to +0.042\%$), a clear sign that tree ensembles overfit to noise characteristics in the 94-feature setting and that parsimonious selection acts as regularisation. An audit finding: NN4 and NN5 produce degenerate zero-variance predictions in 13\% and 60\% of test months under the parsimonious feature set; audited metrics restricting to non-degenerate months are in Appendix~\ref{app:parsimony} (Tables~\ref{tab:parsimony}, \ref{tab:parsimony_port}, Figures~\ref{fig:delta_r2}, \ref{fig:degen_months}).
 
 The parsimony result has a direct implication for the factor zoo debate \citep{Harvey2016}. If a 15-feature model recovers the majority of predictability while tree models actually \textit{improve} by dropping noise features, it suggests that a large fraction of the 94 GKX characteristics are redundant or spurious in the sense that they add noise rather than signal for ensemble learners. For linear models, the parsimony cost is larger in absolute terms (NN1 retains 46\% of its full-set OOS $R^2$) but the remaining signal is more interpretable and stable across sub-periods. Practitioners facing regulatory scrutiny or interpretability requirements can therefore achieve meaningful predictive power from a model whose inputs can each be individually justified on economic grounds---a result that speaks directly to the gap between academic ML finance and real-world deployment.
+
+\endgroup
 
 % ============================================================
 %  SECTION 4 — WHAT AI COULDN'T TELL ME
